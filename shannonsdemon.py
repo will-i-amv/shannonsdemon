@@ -13,7 +13,7 @@ circuitbreaker = True
 initialized = True
 firstrun = True
 
-#read config file
+# read config file
 try:
     with open(filename) as json_data_file:
         config = json.load(json_data_file)
@@ -22,7 +22,7 @@ except Exception as e:
           '   not able to read config file, ' +
           'please fix and restart: ', e)
     initialized = False
-#init binance client
+# init binance client
 try:
     client = Client(config['publickey'], config['secretkey'])
 except Exception as e:
@@ -38,10 +38,9 @@ def getMarketsInfo():
     try:
         info = client.get_exchange_info()
     except Exception as e:
-        print(
-            time.strftime(tf, time.gmtime()),
-            '    circuitbreaker set to false, ' +
-            'cant get market info from exchange: ', e)
+        print(time.strftime(tf, time.gmtime()),
+              '    circuitbreaker set to false, ' +
+              'cant get market info from exchange: ', e)
         circuitbreaker = False
 
     formats = {}
@@ -157,7 +156,7 @@ def processAllTrades():
             trades = []
             trades = sorted(tradesTemp, key=lambda k: k['id'])
 
-            #process trades
+            # process trades
             for j in range(len(trades)):
 
                 try:
@@ -168,18 +167,18 @@ def processAllTrades():
                     if order['clientOrderId'][0:3] == 'SHN':
 
                         if trades[j]['isBuyer']:
-                            config['pairs'][i]['base_asset_qty'] = config[
-                                'pairs'][i]['base_asset_qty'] +
+                            config['pairs'][i]['base_asset_qty'] =
+                                config['pairs'][i]['base_asset_qty'] +
                                 float(trades[j]['qty'])
-                            config['pairs'][i]['quote_asset_qty'] = config[
-                                'pairs'][i]['quote_asset_qty'] -
+                            config['pairs'][i]['quote_asset_qty'] =
+                                config['pairs'][i]['quote_asset_qty'] -
                                 float(trades[j]['quoteQty'])
                         else:
-                            config['pairs'][i]['base_asset_qty'] = config[
-                                'pairs'][i]['base_asset_qty'] -
+                            config['pairs'][i]['base_asset_qty'] =
+                                config['pairs'][i]['base_asset_qty'] -
                                 float(trades[j]['qty'])
-                            config['pairs'][i]['quote_asset_qty'] = config[
-                                'pairs'][i]['quote_asset_qty'] +
+                            config['pairs'][i]['quote_asset_qty'] =
+                                config['pairs'][i]['quote_asset_qty'] +
                                 float(trades[j]['quoteQty'])
 
                         config['pairs'][i]['fromId'] = trades[j]['id']
@@ -220,10 +219,9 @@ def processAllTrades():
 
             time.sleep(1.1)
     except Exception as e:
-        print(
-            time.strftime(tf, time.gmtime()),
-            '   circuitbreaker set to fasle, ' +
-            'not able to process all trades ', e)
+        print(time.strftime(tf, time.gmtime()),
+              '   circuitbreaker set to fasle, ' +
+              'not able to process all trades ', e)
         circuitbreaker = False
 
 
@@ -296,7 +294,8 @@ def sendOrders():
             mybidp = bidpercentage * fairp
             myaskp = askpercentage * fairp
 
-            if float(mid) < 0.99 * mybidp or float(mid) > 1.01 * myaskp:
+            if float(mid) < 0.99 * mybidp or
+            float(mid) > 1.01 * myaskp:
                 circuitbreaker = False
                 print(time.strftime(tf, time.gmtime()),
                       '   please inspect quantities config file ' +
@@ -313,8 +312,9 @@ def sendOrders():
                 (-0.5 * (totcoin * myaskp + totcash) + totcoin * myaskp)
                 * 1.0 / myaskp)
 
-            #start buy order
-            orderbidp = ticksizeformat.format(min(mybidp, bidp + ticksize))
+            # start buy order
+            orderbidp = ticksizeformat.format(
+                min(mybidp, bidp + ticksize))
             orderbidq = mybidq
             if config['state'] == 'TRADE' and circuitbreaker:
                 print(time.strftime(tf, time.gmtime()),
@@ -325,7 +325,8 @@ def sendOrders():
                       ' l: ', '{0: <9}'.format(str(mid)),
                       ' b: ', awayFromBuy)
 
-                myId = 'SHN-B-' + key + '-' + str(int(time.time() - timeconst))
+                myId = 'SHN-B-' + key + '-' +
+                    str(int(time.time() - timeconst))
                 try:
                     client.order_limit_buy(symbol=key,
                                            quantity=orderbidq,
@@ -343,8 +344,9 @@ def sendOrders():
                       ' l: ', '{0: <9}'.format(str(mid)),
                       ' b: ', awayFromBuy)
 
-            #start sell order
-            orderaskp = ticksizeformat.format(max(myaskp, askp - ticksize))
+            # start sell order
+            orderaskp = ticksizeformat.format(
+                max(myaskp, askp - ticksize))
             orderaskq = myaskq
             if config['state'] == 'TRADE' and circuitbreaker:
                 print(time.strftime(tf, time.gmtime()),
@@ -399,8 +401,8 @@ if initialized:
     cancelAllOrders()
     print(time.strftime(tf, time.gmtime()),
           '   end cancel all orders')
-    rebalanceUpdate = time.time(
-    )  #if start with rebalance:   - rebalance_interval_sec -1.0
+    # if start with rebalance:   - rebalance_interval_sec -1.0
+    rebalanceUpdate = time.time()
 
 while True and initialized:
 
@@ -415,7 +417,7 @@ while True and initialized:
         print(time.strftime(tf, time.gmtime()),
               '   end processing trades')
 
-        #send orders special or normal
+        # send orders special or normal
         lastUpdate = time.time()
         if time.time() > rebalanceUpdate + rebalance_interval_sec and
         rebalance_interval_sec > 0:
@@ -446,7 +448,7 @@ while True and initialized:
           ' seconds')
     time.sleep(quote_interval_sec)
 
-    #canel orders
+    # cancel orders
     lastUpdate = time.time()
     print(time.strftime(tf, time.gmtime()),
           '   start cancel all orders')
