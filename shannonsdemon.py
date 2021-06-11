@@ -168,18 +168,18 @@ def processAllTrades():
 
                         if trades[j]['isBuyer']:
                             config['pairs'][i]['base_asset_qty'] =
-                                config['pairs'][i]['base_asset_qty'] +
-                                float(trades[j]['qty'])
+                            config['pairs'][i]['base_asset_qty'] +
+                            float(trades[j]['qty'])
                             config['pairs'][i]['quote_asset_qty'] =
-                                config['pairs'][i]['quote_asset_qty'] -
-                                float(trades[j]['quoteQty'])
+                            config['pairs'][i]['quote_asset_qty'] -
+                            float(trades[j]['quoteQty'])
                         else:
                             config['pairs'][i]['base_asset_qty'] =
-                                config['pairs'][i]['base_asset_qty'] -
-                                float(trades[j]['qty'])
+                            config['pairs'][i]['base_asset_qty'] -
+                            float(trades[j]['qty'])
                             config['pairs'][i]['quote_asset_qty'] =
-                                config['pairs'][i]['quote_asset_qty'] +
-                                float(trades[j]['quoteQty'])
+                            config['pairs'][i]['quote_asset_qty'] +
+                            float(trades[j]['quoteQty'])
 
                         config['pairs'][i]['fromId'] = trades[j]['id']
                         writeConfig()
@@ -193,26 +193,26 @@ def processAllTrades():
                                   ' qty: ', trades[j]['qty'],
                                   ' price: ', trades[j]['price'])
                             lastTrades[lastTradesCount] = ' ' +
-                                str(time.ctime(
-                                    (float(trades[j]['time']) / 1000.0))) +
-                                ' buy:' + '{0: <10}'.format(key) +
-                                ' qty: ' + '{0: <10}'.format(
-                                    trades[j]['qty']) +
-                                ' price: ' + '{0: <10}'.format(
-                                    trades[j]['price'])
+                            str(time.ctime((
+                                float(trades[j]['time']) / 1000.0))) +
+                            ' buy:' + '{0: <10}'.format(key) +
+                            ' qty: ' + '{0: <10}'.format(
+                                trades[j]['qty']) +
+                            ' price: ' + '{0: <10}'.format(
+                                trades[j]['price'])
                         else:
                             print(time.strftime(tf, time.gmtime()),
                                   '   new trade (sell):', key,
                                   ' qty: ', trades[j]['qty'],
                                   ' price: ', trades[j]['price'])
                             lastTrades[lastTradesCount] = ' ' +
-                                str(time.ctime(
-                                    (float(trades[j]['time']) /1000.0))) +
-                                ' sell:' + '{0: <10}'.format(key) +
-                                ' qty: ' + '{0: <10}'.format(
-                                    trades[j]['qty']) +
-                                ' price: ' + '{0: <10}'.format(
-                                    trades[j]['price'])
+                            str(time.ctime(
+                                (float(trades[j]['time']) / 1000.0))) +
+                            ' sell:' + '{0: <10}'.format(key) +
+                            ' qty: ' + '{0: <10}'.format(
+                                trades[j]['qty']) +
+                            ' price: ' + '{0: <10}'.format(
+                                trades[j]['price'])
 
                 except Exception as e:
                     print('')
@@ -326,7 +326,7 @@ def sendOrders():
                       ' b: ', awayFromBuy)
 
                 myId = 'SHN-B-' + key + '-' +
-                    str(int(time.time() - timeconst))
+                str(int(time.time() - timeconst))
                 try:
                     client.order_limit_buy(symbol=key,
                                            quantity=orderbidq,
@@ -357,7 +357,7 @@ def sendOrders():
                       ' s: ', awayFromSell)
 
                 myId = 'SHN-S-' + key + '-' +
-                       str(int(time.time() - timeconst))
+                str(int(time.time() - timeconst))
                 try:
                     client.order_limit_sell(symbol=key,
                                             quantity=orderaskq,
@@ -437,7 +437,7 @@ while True and initialized:
                   '   end sending orders')
 
         for i in range(len(lastTrades)):
-            if lastTrades[i] != None:
+            if lastTrades[i] is not None:
                 print(time.strftime(tf, time.gmtime()),
                       '   last 3 trades: ',
                       lastTrades[i])
