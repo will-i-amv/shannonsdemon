@@ -4,268 +4,248 @@ import json
 import os
 
 
-timeconst = 1579349682.0
-infos = {}
-lastTrades = [None] * 3
-lastTradesCount = -1
-specialOrders = True
-tf = "%a, %d %b %Y %H:%M:%S"
-filename = 'config.json'
-circuitbreaker = True
-initialized = True
-firstrun = True
-
-# read config file
-try:
-    with open(filename) as json_data_file:
-        config = json.load(json_data_file)
-except Exception as e:
-    print(time.strftime(tf, time.gmtime()),
-          '   not able to read config file, ' +
-          'please fix and restart: ', e)
-    initialized = False
-# init binance client
-try:
-    publicKey = os.environ['PUBLIC_KEY']
-    privateKey = os.environ['PRIVATE_KEY']
-    client = Client(publicKey, privateKey)
-except Exception as e:
-    print(
-        time.strftime(tf, time.gmtime()),
-        '   not able to init client (internet connection?),' +
-        ' please fix and restart: ', e)
-    initialized = False
+class Shannonsdemon():
+    def __init__(self):
+        self.circuitbreaker = True
+        self.initialized = True
+        self.firstrun = True
+        self.specialOrders = True
+        self.timeformat = "%a, %d %b %Y %H:%M:%S"
+        self.timeconst = 1579349682.0
+        self.timestamp = time.strftime(self.timeformat, time.gmtime())
+        self.lastTradesCount = -1
+        self.lastTrades = [None] * 3
 
 
-def getMarketsInfo():
-    global circuitbreaker
-    try:
-        info = client.get_exchange_info()
-    except Exception as e:
-        print(time.strftime(tf, time.gmtime()),
-              '    circuitbreaker set to false, ' +
-              'cant get market info from exchange: ', e)
-        circuitbreaker = False
+    def getMarketsInfo(self, config, client):
+        try:
+            info = client.get_exchange_info()
+        except Exception as e:
+            print(self.timestamp,
+                '    circuitbreaker set to false, ' +
+                'cant get market info from exchange: ', e)
+            self.circuitbreaker = False
 
-    formats = {}
-    for i in range(len(config['pairs'])):
-        key = config['pairs'][i]['market']
-        format = {}
-
-        for market in info['symbols']:
-            if market['symbol'] == key:
-
-                for filter in market['filters']:
-                    if filter['filterType'] == 'LOT_SIZE':
-                        stepSize = float(filter['stepSize'])
-                        t = float(filter['stepSize'])
-                        if t >= 1.0:
-                            stepSizesFormat = '{:.0f}'
-                        elif t == 0.1:
-                            stepSizesFormat = '{:.1f}'
-                        elif t == 0.01:
-                            stepSizesFormat = '{:.2f}'
-                        elif t == 0.001:
-                            stepSizesFormat = '{:.3f}'
-                        elif t == 0.0001:
-                            stepSizesFormat = '{:.4f}'
-                        elif t == 0.00001:
-                            stepSizesFormat = '{:.5f}'
-                        elif t == 0.000001:
-                            stepSizesFormat = '{:.6f}'
-                        elif t == 0.0000001:
-                            stepSizesFormat = '{:.7f}'
-                        elif t == 0.00000001:
-                            stepSizesFormat = '{:.8f}'
-
-                    if filter['filterType'] == 'PRICE_FILTER':
-                        tickSize = (float(filter['tickSize']))
-                        t = float(filter['tickSize'])
-                        if t >= 1.0:
-                            tickSizesFormat = '{:.0f}'
-                        elif t == 0.1:
-                            tickSizesFormat = '{:.1f}'
-                        elif t == 0.01:
-                            tickSizesFormat = '{:.2f}'
-                        elif t == 0.001:
-                            tickSizesFormat = '{:.3f}'
-                        elif t == 0.0001:
-                            tickSizesFormat = '{:.4f}'
-                        elif t == 0.00001:
-                            tickSizesFormat = '{:.5f}'
-                        elif t == 0.000001:
-                            tickSizesFormat = '{:.6f}'
-                        elif t == 0.0000001:
-                            tickSizesFormat = '{:.7f}'
-                        elif t == 0.00000001:
-                            tickSizesFormat = '{:.8f}'
-
-        format['tickSizeFormat'] = tickSizesFormat
-        format['stepSizeFormat'] = stepSizesFormat
-        format['tickSize'] = tickSize
-        format['stepSize'] = stepSize
-
-        formats[key] = format
-
-    return formats
-
-
-def writeConfig():
-    global circuitbreaker
-    try:
-        with open(filename, 'w') as outfile:
-            json.dump(config, outfile)
-    except Exception as e:
-        print(time.strftime(tf, time.gmtime()),
-              '    circuitbreaker set to false, ' +
-              'cant write to file: ', e)
-        circuitbreaker = False
-
-
-def cancelAllOrders():
-    global circuitbreaker
-    circuitbreaker = True
-    try:
+        formats = {}
         for i in range(len(config['pairs'])):
             key = config['pairs'][i]['market']
-            crtOrders = client.get_open_orders(symbol=key)
-            if len(crtOrders) > 0:
-                for j, val in enumerate(crtOrders):
-                    if crtOrders[j]['clientOrderId'][0:3] == 'SHN':
-                        client.cancel_order(symbol=key,
-                                            orderId=crtOrders[j]['orderId'])
-                    time.sleep(1.05)
+            format = {}
 
-    except Exception as e:
-        print(time.strftime(tf, time.gmtime()),
-              '   circuitbreaker set to false, ' +
-              'cannot cancel all orders: ', e)
-        circuitbreaker = False
-        time.sleep(5.0)
+            for market in info['symbols']:
+                if market['symbol'] == key:
+
+                    for filter in market['filters']:
+                        if filter['filterType'] == 'LOT_SIZE':
+                            stepSize = float(filter['stepSize'])
+                            t = float(filter['stepSize'])
+                            if t >= 1.0:
+                                stepSizesFormat = '{:.0f}'
+                            elif t == 0.1:
+                                stepSizesFormat = '{:.1f}'
+                            elif t == 0.01:
+                                stepSizesFormat = '{:.2f}'
+                            elif t == 0.001:
+                                stepSizesFormat = '{:.3f}'
+                            elif t == 0.0001:
+                                stepSizesFormat = '{:.4f}'
+                            elif t == 0.00001:
+                                stepSizesFormat = '{:.5f}'
+                            elif t == 0.000001:
+                                stepSizesFormat = '{:.6f}'
+                            elif t == 0.0000001:
+                                stepSizesFormat = '{:.7f}'
+                            elif t == 0.00000001:
+                                stepSizesFormat = '{:.8f}'
+
+                        if filter['filterType'] == 'PRICE_FILTER':
+                            tickSize = (float(filter['tickSize']))
+                            t = float(filter['tickSize'])
+                            if t >= 1.0:
+                                tickSizesFormat = '{:.0f}'
+                            elif t == 0.1:
+                                tickSizesFormat = '{:.1f}'
+                            elif t == 0.01:
+                                tickSizesFormat = '{:.2f}'
+                            elif t == 0.001:
+                                tickSizesFormat = '{:.3f}'
+                            elif t == 0.0001:
+                                tickSizesFormat = '{:.4f}'
+                            elif t == 0.00001:
+                                tickSizesFormat = '{:.5f}'
+                            elif t == 0.000001:
+                                tickSizesFormat = '{:.6f}'
+                            elif t == 0.0000001:
+                                tickSizesFormat = '{:.7f}'
+                            elif t == 0.00000001:
+                                tickSizesFormat = '{:.8f}'
+
+            format['tickSizeFormat'] = tickSizesFormat
+            format['stepSizeFormat'] = stepSizesFormat
+            format['tickSize'] = tickSize
+            format['stepSize'] = stepSize
+
+            formats[key] = format
+
+        return formats
 
 
-def processAllTrades():
+    def writeConfig(self, config, filename):
+        try:
+            with open(filename, 'w') as f:
+                json.dump(config, f)
+        except Exception as e:
+            print(self.timestamp,
+                '    self.circuitbreaker set to false, ' +
+                'cant write to file: ', e)
+            self.circuitbreaker = False
 
-    global config, lastTrades, lastTradesCount, ordersAllowed, circuitbreaker
-    circuitbreaker = True
 
-    try:
-        for i in range(len(config['pairs'])):
+    def cancelAllOrders(self, config, client):
+        self.circuitbreaker = True
+        try:
+            for i in range(len(config['pairs'])):
+                key = config['pairs'][i]['market']
+                crtOrders = client.get_open_orders(symbol=key)
+                if len(crtOrders) > 0:
+                    for j, val in enumerate(crtOrders):
+                        if crtOrders[j]['clientOrderId'][0:3] == 'SHN':
+                            client.cancel_order(symbol=key,
+                                                orderId=crtOrders[j]['orderId'])
+                        time.sleep(1.05)
 
-            key = config['pairs'][i]['market']
-            lastId = config['pairs'][i]['fromId']
-            tradesTemp = client.get_my_trades(symbol=key,
-                                              limit=1000,
-                                              fromId=lastId + 1)
-            trades = []
-            trades = sorted(tradesTemp, key=lambda k: k['id'])
+        except Exception as e:
+            print(self.timestamp,
+                '   self.circuitbreaker set to false, ' +
+                'cannot cancel all orders: ', e)
+            self.circuitbreaker = False
+            time.sleep(5.0)
 
-            # process trades
-            for j in range(len(trades)):
+
+    def processAllTrades(self, config, filename):
+        self.circuitbreaker = True
+
+        try:
+            for i in range(len(config['pairs'])):
+
+                key = config['pairs'][i]['market']
+                lastId = config['pairs'][i]['fromId']
+                tradesTemp = client.get_my_trades(symbol=key,
+                                                limit=1000,
+                                                fromId=lastId + 1)
+                trades = []
+                trades = sorted(tradesTemp, key=lambda k: k['id'])
+
+                # process trades
+                for j in range(len(trades)):
+
+                    try:
+
+                        order = client.get_order(symbol=key,
+                                                orderId=trades[j]['orderId'])
+
+                        if order['clientOrderId'][0:3] == 'SHN':
+
+                            if trades[j]['isBuyer']:
+                                config['pairs'][i]['base_asset_qty'] += float(trades[j]['qty'])
+                                config['pairs'][i]['quote_asset_qty'] -= float(trades[j]['quoteQty'])
+                            else:
+                                config['pairs'][i]['base_asset_qty'] -= float(trades[j]['qty'])
+                                config['pairs'][i]['quote_asset_qty'] += float(trades[j]['quoteQty'])
+
+                            config['pairs'][i]['fromId'] = trades[j]['id']
+                            self.writeConfig(config, filename)
+                            self.lastTradesCount += 1
+                            
+                            if self.lastTradesCount >= 3:
+                                self.lastTradesCount = 0
+                            if trades[j]['isBuyer']:
+                                print(self.timestamp,
+                                    '   new trade (buy) :', key,
+                                    ' qty: ', trades[j]['qty'],
+                                    ' price: ', trades[j]['price'])
+                                timestamp2 = str(time.ctime((float(trades[j]['time']) / 1000.0)))
+                                buy = ' buy:' + '{0: <10}'.format(key)
+                                qty = ' qty: ' + '{0: <10}'.format(trades[j]['qty'])
+                                price = ' price: ' + '{0: <10}'.format(trades[j]['price'])
+                                self.lastTrades[self.lastTradesCount] = ' ' + timestamp2 + buy + qty + price
+                            else:
+                                print(self.timestamp,
+                                    '   new trade (sell):', key,
+                                    ' qty: ', trades[j]['qty'],
+                                    ' price: ', trades[j]['price'])
+                                timestamp2 = str(time.ctime((float(trades[j]['time']) / 1000.0)))
+                                sell = ' sell:' + '{0: <10}'.format(key)
+                                qty = ' qty: ' + '{0: <10}'.format(trades[j]['qty'])
+                                price = ' price: ' + '{0: <10}'.format(trades[j]['price'])
+                                self.lastTrades[self.lastTradesCount] = ' ' + timestamp2 + sell + qty + price
+
+                    except Exception as e:
+                        print(e)
+
+                time.sleep(1.1)
+        except Exception as e:
+            print(self.timestamp,
+                '   self.circuitbreaker set to fasle, ' +
+                'not able to process all trades ', e)
+            self.circuitbreaker = False
+
+
+    def sendOrders(self, config, infos):
+        try:
+            for i in range(len(config['pairs'])):
+
+                self.circuitbreaker = True
+                key = config['pairs'][i]['market']
+                coin = float(config['pairs'][i]['base_asset_qty'])
+                ticksize = infos[key]['tickSize']
+                ticksizeformat = infos[key]['tickSizeFormat']
+                stepsizeformat = infos[key]['stepSizeFormat']
 
                 try:
-
-                    order = client.get_order(symbol=key,
-                                             orderId=trades[j]['orderId'])
-
-                    if order['clientOrderId'][0:3] == 'SHN':
-
-                        if trades[j]['isBuyer']:
-                            config['pairs'][i]['base_asset_qty'] += float(trades[j]['qty'])
-                            config['pairs'][i]['quote_asset_qty'] -= float(trades[j]['quoteQty'])
-                        else:
-                            config['pairs'][i]['base_asset_qty'] -= float(trades[j]['qty'])
-                            config['pairs'][i]['quote_asset_qty'] += float(trades[j]['quoteQty'])
-
-                        config['pairs'][i]['fromId'] = trades[j]['id']
-                        writeConfig()
-
-                        lastTradesCount = lastTradesCount + 1
-                        if lastTradesCount >= 3:
-                            lastTradesCount = 0
-                        if trades[j]['isBuyer']:
-                            print(time.strftime(tf, time.gmtime()),
-                                  '   new trade (buy) :', key,
-                                  ' qty: ', trades[j]['qty'],
-                                  ' price: ', trades[j]['price'])
-                            timestamp = str(time.ctime((float(trades[j]['time']) / 1000.0)))
-                            buy = ' buy:' + '{0: <10}'.format(key)
-                            qty = ' qty: ' + '{0: <10}'.format(trades[j]['qty'])
-                            price = ' price: ' + '{0: <10}'.format(trades[j]['price'])
-                            lastTrades[lastTradesCount] = ' ' + timestamp + buy + qty + price
-                        else:
-                            print(time.strftime(tf, time.gmtime()),
-                                  '   new trade (sell):', key,
-                                  ' qty: ', trades[j]['qty'],
-                                  ' price: ', trades[j]['price'])
-                            timestamp = str(time.ctime((float(trades[j]['time']) / 1000.0)))
-                            sell = ' sell:' + '{0: <10}'.format(key)
-                            qty = ' qty: ' + '{0: <10}'.format(trades[j]['qty'])
-                            price = ' price: ' + '{0: <10}'.format(trades[j]['price'])
-                            lastTrades[lastTradesCount] = ' ' + timestamp + sell + qty + price
-
+                    prices = client.get_ticker(symbol=key)
+                    self.circuitbreaker = True
                 except Exception as e:
-                    print('')
+                    self.circuitbreaker = False
+                    print(self.timestamp,
+                        '   not able to get price ', e)
 
-            time.sleep(1.1)
-    except Exception as e:
-        print(time.strftime(tf, time.gmtime()),
-              '   circuitbreaker set to fasle, ' +
-              'not able to process all trades ', e)
-        circuitbreaker = False
+                bidp = float(prices['bidPrice'])
+                askp = float(prices['askPrice'])
+                mid = ticksizeformat.format(0.5 * (bidp + askp))
 
+                totcoin = float(coin)
+                totcash = float(config['pairs'][i]['quote_asset_qty'])
 
-def sendOrders():
-    global config, initialized, firstrun
+                fairp = totcash / totcoin
 
-    try:
-        for i in range(len(config['pairs'])):
+                awayFromBuy = '{:.1f}'.format(
+                    100.0 * (float(mid) - fairp) / fairp) + '%'
+                awayFromSell = '{:.1f}'.format(
+                    100.0 * (float(mid) - fairp) / fairp) + '%'
+                awayFromMid = (float(mid) - fairp) / fairp
 
-            circuitbreaker = True
-            key = config['pairs'][i]['market']
-            coin = float(config['pairs'][i]['base_asset_qty'])
-            ticksize = infos[key]['tickSize']
-            ticksizeformat = infos[key]['tickSizeFormat']
-            stepsizeformat = infos[key]['stepSizeFormat']
-
-            try:
-                prices = client.get_ticker(symbol=key)
-                circuitbreaker = True
-            except Exception as e:
-                circuitbreaker = False
-                print(time.strftime(tf, time.gmtime()),
-                      '   not able to get price ', e)
-
-            bidp = float(prices['bidPrice'])
-            askp = float(prices['askPrice'])
-            mid = ticksizeformat.format(0.5 * (bidp + askp))
-
-            totcoin = float(coin)
-            totcash = float(config['pairs'][i]['quote_asset_qty'])
-
-            fairp = totcash / totcoin
-
-            awayFromBuy = '{:.1f}'.format(
-                100.0 * (float(mid) - fairp) / fairp) + '%'
-            awayFromSell = '{:.1f}'.format(
-                100.0 * (float(mid) - fairp) / fairp) + '%'
-            awayFromMid = (float(mid) - fairp) / fairp
-
-            if specialOrders:
-                if float(awayFromMid) >= 0.05:
-                    bidpercentage = min(
-                        0.95,
-                        float(config['pairs'][i]['buy_percentage']))
-                    askpercentage = max(
-                        1.05,
-                        1.0 + float(awayFromMid))
-                elif float(awayFromMid) <= -0.05:
-                    bidpercentage = min(
-                        0.95,
-                        1.0 + float(awayFromMid))
-                    askpercentage = max(
-                        1.05,
-                        float(config['pairs'][i]['sell_percentage']))
+                if self.specialOrders:
+                    if float(awayFromMid) >= 0.05:
+                        bidpercentage = min(
+                            0.95,
+                            float(config['pairs'][i]['buy_percentage']))
+                        askpercentage = max(
+                            1.05,
+                            1.0 + float(awayFromMid))
+                    elif float(awayFromMid) <= -0.05:
+                        bidpercentage = min(
+                            0.95,
+                            1.0 + float(awayFromMid))
+                        askpercentage = max(
+                            1.05,
+                            float(config['pairs'][i]['sell_percentage']))
+                    else:
+                        bidpercentage = min(
+                            0.95,
+                            float(config['pairs'][i]['buy_percentage']))
+                        askpercentage = max(
+                            1.05,
+                            float(config['pairs'][i]['sell_percentage']))
                 else:
                     bidpercentage = min(
                         0.95,
@@ -273,162 +253,183 @@ def sendOrders():
                     askpercentage = max(
                         1.05,
                         float(config['pairs'][i]['sell_percentage']))
-            else:
-                bidpercentage = min(
-                    0.95,
-                    float(config['pairs'][i]['buy_percentage']))
-                askpercentage = max(
-                    1.05,
-                    float(config['pairs'][i]['sell_percentage']))
 
-            mybidp = bidpercentage * fairp
-            myaskp = askpercentage * fairp
+                mybidp = bidpercentage * fairp
+                myaskp = askpercentage * fairp
 
-            if float(mid) < 0.99 * mybidp or float(mid) > 1.01 * myaskp:
-                circuitbreaker = False
-                print(time.strftime(tf, time.gmtime()),
-                      '   please inspect quantities config file ' +
-                      'as bot hits market')
-                if firstrun:
-                    initialized = False
-            else:
-                circuitbreaker = True
+                if float(mid) < 0.99 * mybidp or float(mid) > 1.01 * myaskp:
+                    self.circuitbreaker = False
+                    print(self.timestamp,
+                        '   please inspect quantities config file ' +
+                        'as bot hits market')
+                    if self.firstrun:
+                        self.initialized = False
+                else:
+                    self.circuitbreaker = True
 
-            mybidq = stepsizeformat.format(
-                (0.5 * (totcoin * mybidp + totcash) - totcoin * mybidp)
-                * 1.0 / mybidp)
-            myaskq = stepsizeformat.format(
-                (-0.5 * (totcoin * myaskp + totcash) + totcoin * myaskp)
-                * 1.0 / myaskp)
+                mybidq = stepsizeformat.format(
+                    (0.5 * (totcoin * mybidp + totcash) - totcoin * mybidp)
+                    * 1.0 / mybidp)
+                myaskq = stepsizeformat.format(
+                    (-0.5 * (totcoin * myaskp + totcash) + totcoin * myaskp)
+                    * 1.0 / myaskp)
 
-            # start buy order
-            orderbidp = ticksizeformat.format(
-                min(mybidp, bidp + ticksize))
-            orderbidq = mybidq
-            if config['state'] == 'TRADE' and circuitbreaker:
-                print(time.strftime(tf, time.gmtime()),
-                      '   send buy  order: ',
-                      '{0: <9}'.format(key),
-                      ' p: ', '{0: <9}'.format(str(orderbidp)),
-                      ' q: ', '{0: <8}'.format(str(mybidq)),
-                      ' l: ', '{0: <9}'.format(str(mid)),
-                      ' b: ', awayFromBuy)
+                # start buy order
+                orderbidp = ticksizeformat.format(
+                    min(mybidp, bidp + ticksize))
+                orderbidq = mybidq
+                if config['state'] == 'TRADE' and self.circuitbreaker:
+                    print(self.timestamp,
+                        '   send buy  order: ',
+                        '{0: <9}'.format(key),
+                        ' p: ', '{0: <9}'.format(str(orderbidp)),
+                        ' q: ', '{0: <8}'.format(str(mybidq)),
+                        ' l: ', '{0: <9}'.format(str(mid)),
+                        ' b: ', awayFromBuy)
 
-                myId = 'SHN-B-' + key + '-' + str(int(time.time() - timeconst))
-                try:
-                    client.order_limit_buy(symbol=key,
-                                           quantity=orderbidq,
-                                           price=orderbidp,
-                                           newClientOrderId=myId)
-                except Exception as e:
-                    print(time.strftime(tf, time.gmtime()),
-                          '   not able to send buy order for: ', key,
-                          ' because: ', e)
-            else:
-                print(time.strftime(tf, time.gmtime()),
-                      '   send DUMMY  buy order: ', '{0: <9}'.format(key),
-                      ' p: ', '{0: <9}'.format(str(orderbidp)),
-                      ' q: ', '{0: <8}'.format(str(mybidq)),
-                      ' l: ', '{0: <9}'.format(str(mid)),
-                      ' b: ', awayFromBuy)
-
-            # start sell order
-            orderaskp = ticksizeformat.format(
-                max(myaskp, askp - ticksize))
-            orderaskq = myaskq
-            if config['state'] == 'TRADE' and circuitbreaker:
-                print(time.strftime(tf, time.gmtime()),
-                      '   send sell order: ', '{0: <9}'.format(key),
-                      ' p: ', '{0: <9}'.format(str(orderaskp)),
-                      ' q: ', '{0: <8}'.format(str(myaskq)),
-                      ' l: ', '{0: <9}'.format(str(mid)),
-                      ' s: ', awayFromSell)
-
-                myId = 'SHN-S-' + key + '-' + str(int(time.time() - timeconst))
-                try:
-                    client.order_limit_sell(symbol=key,
-                                            quantity=orderaskq,
-                                            price=orderaskp,
+                    myId = 'SHN-B-' + key + '-' + str(int(time.time() - self.timeconst))
+                    try:
+                        client.order_limit_buy(symbol=key,
+                                            quantity=orderbidq,
+                                            price=orderbidp,
                                             newClientOrderId=myId)
-                except Exception as e:
-                    print(time.strftime(tf, time.gmtime()),
-                          '   not able to send sell order for: ', key,
-                          ' because: ', e)
-            else:
-                print(time.strftime(tf, time.gmtime()),
-                      '   send DUMMY sell order: ', '{0: <9}'.format(key),
-                      ' p: ', '{0: <9}'.format(str(orderaskp)),
-                      ' q: ', '{0: <8}'.format(str(myaskq)),
-                      ' l: ', '{0: <9}'.format(str(mid)),
-                      ' s: ', awayFromSell)
+                    except Exception as e:
+                        print(self.timestamp,
+                            '   not able to send buy order for: ', key,
+                            ' because: ', e)
+                else:
+                    print(self.timestamp,
+                        '   send DUMMY  buy order: ', '{0: <9}'.format(key),
+                        ' p: ', '{0: <9}'.format(str(orderbidp)),
+                        ' q: ', '{0: <8}'.format(str(mybidq)),
+                        ' l: ', '{0: <9}'.format(str(mid)),
+                        ' b: ', awayFromBuy)
 
-    except Exception as e:
-        print(time.strftime(tf, time.gmtime()),
-              '    not able to send orders ',
-              e)
+                # start sell order
+                orderaskp = ticksizeformat.format(
+                    max(myaskp, askp - ticksize))
+                orderaskq = myaskq
+                if config['state'] == 'TRADE' and self.circuitbreaker:
+                    print(self.timestamp,
+                        '   send sell order: ', '{0: <9}'.format(key),
+                        ' p: ', '{0: <9}'.format(str(orderaskp)),
+                        ' q: ', '{0: <8}'.format(str(myaskq)),
+                        ' l: ', '{0: <9}'.format(str(mid)),
+                        ' s: ', awayFromSell)
 
-    firstrun = False
+                    myId = 'SHN-S-' + key + '-' + str(int(time.time() - self.timeconst))
+                    try:
+                        client.order_limit_sell(symbol=key,
+                                                quantity=orderaskq,
+                                                price=orderaskp,
+                                                newClientOrderId=myId)
+                    except Exception as e:
+                        print(self.timestamp,
+                            '   not able to send sell order for: ', key,
+                            ' because: ', e)
+                else:
+                    print(self.timestamp,
+                        '   send DUMMY sell order: ', '{0: <9}'.format(key),
+                        ' p: ', '{0: <9}'.format(str(orderaskp)),
+                        ' q: ', '{0: <8}'.format(str(myaskq)),
+                        ' l: ', '{0: <9}'.format(str(mid)),
+                        ' s: ', awayFromSell)
+
+        except Exception as e:
+            print(self.timestamp,
+                '    not able to send orders ',
+                e)
+
+        self.firstrun = False        
 
 
+filename = 'config.json'
+bot = Shannonsdemon()
+
+# read config file
+try:
+    with open(filename) as json_data_file:
+        config = json.load(json_data_file)
+except Exception as e:
+    print(bot.timestamp,
+          '   not able to read config file, ' +
+          'please fix and restart: ', e)
+    bot.initialized = False
+
+# init binance client
+try:
+    publicKey = os.environ['PUBLIC_KEY']
+    privateKey = os.environ['PRIVATE_KEY']
+    client = Client(publicKey, privateKey)
+except Exception as e:
+    print(
+        bot.timestamp,
+        '   not able to init client (internet connection?),' +
+        ' please fix and restart: ', e)
+    bot.initialized = False
+
+
+
+infos = {}
 wait_interval_sec = float(config['sleep_seconds_after_cancel_orders'])
 quote_interval_sec = float(config['sleep_seconds_after_send_orders'])
 rebalance_interval_sec = float(config['rebalance_interval_sec'])
 lastUpdate = time.time()
 
-if initialized:
-    print(time.strftime(tf, time.gmtime()),
+if bot.initialized:
+    print(bot.timestamp,
           '   start initializing')
-    infos = getMarketsInfo()
+    infos = bot.getMarketsInfo(config, client)
     time.sleep(5)
-    print(time.strftime(tf, time.gmtime()),
+    print(bot.timestamp,
           '   end initializing')
 
-    print(time.strftime(tf, time.gmtime()),
+    print(bot.timestamp,
           '   start cancel all orders')
-    cancelAllOrders()
-    print(time.strftime(tf, time.gmtime()),
+    bot.cancelAllOrders(config, client)
+    print(bot.timestamp,
           '   end cancel all orders')
     # if start with rebalance:   - rebalance_interval_sec -1.0
     rebalanceUpdate = time.time()
 
-while True and initialized:
+while True and bot.initialized:
 
-    if not circuitbreaker:
-        print(time.strftime(tf, time.gmtime()),
-              '   circuitbreaker false, do not send orders')
+    if not bot.circuitbreaker:
+        print(bot.timestamp,
+              '   bot.circuitbreaker false, do not send orders')
     else:
 
-        print(time.strftime(tf, time.gmtime()),
+        print(bot.timestamp,
               '   start processing trades')
-        processAllTrades()
-        print(time.strftime(tf, time.gmtime()),
+        bot.processAllTrades(config, filename)
+        print(bot.timestamp,
               '   end processing trades')
 
         # send orders special or normal
         lastUpdate = time.time()
         if time.time() > rebalanceUpdate + rebalance_interval_sec and rebalance_interval_sec > 0:
             rebalanceUpdate = time.time()
-            print(time.strftime(tf, time.gmtime()),
+            print(bot.timestamp,
                   '   start sending special orders')
-            specialOrders = True
-            sendOrders()
-            specialOrders = False
-            print(time.strftime(tf, time.gmtime()),
+            bot.specialOrders = True
+            bot.sendOrders(config, infos)
+            bot.specialOrders = False
+            print(bot.timestamp,
                   '   end sending special orders')
         else:
-            print(time.strftime(tf, time.gmtime()),
+            print(bot.timestamp,
                   '   start sending orders')
-            sendOrders()
-            print(time.strftime(tf, time.gmtime()),
+            bot.sendOrders(config, infos)
+            print(bot.timestamp,
                   '   end sending orders')
 
-        for i in range(len(lastTrades)):
-            if lastTrades[i] is not None:
-                print(time.strftime(tf, time.gmtime()),
+        for i in range(len(bot.lastTrades)):
+            if bot.lastTrades[i] is not None:
+                print(bot.timestamp,
                       '   last 3 trades: ',
-                      lastTrades[i])
+                      bot.lastTrades[i])
 
-    print(time.strftime(tf, time.gmtime()),
+    print(bot.timestamp,
           '   sleep for: ',
           quote_interval_sec,
           ' seconds')
@@ -436,13 +437,14 @@ while True and initialized:
 
     # cancel orders
     lastUpdate = time.time()
-    print(time.strftime(tf, time.gmtime()),
+    print(bot.timestamp,
           '   start cancel all orders')
-    cancelAllOrders()
-    print(time.strftime(tf, time.gmtime()),
+    bot.cancelAllOrders(config, client)
+    print(bot.timestamp,
           '   end cancel all orders')
 
-    print(time.strftime(tf, time.gmtime()),
+    print(bot.timestamp,
           '   sleep for: ',
           wait_interval_sec, ' seconds')
     time.sleep(wait_interval_sec)
+   
