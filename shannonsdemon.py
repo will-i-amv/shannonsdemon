@@ -171,19 +171,11 @@ def processAllTrades():
                     if order['clientOrderId'][0:3] == 'SHN':
 
                         if trades[j]['isBuyer']:
-                            config['pairs'][i]['base_asset_qty'] =
-                            config['pairs'][i]['base_asset_qty'] +
-                            float(trades[j]['qty'])
-                            config['pairs'][i]['quote_asset_qty'] =
-                            config['pairs'][i]['quote_asset_qty'] -
-                            float(trades[j]['quoteQty'])
+                            config['pairs'][i]['base_asset_qty'] += float(trades[j]['qty'])
+                            config['pairs'][i]['quote_asset_qty'] -= float(trades[j]['quoteQty'])
                         else:
-                            config['pairs'][i]['base_asset_qty'] =
-                            config['pairs'][i]['base_asset_qty'] -
-                            float(trades[j]['qty'])
-                            config['pairs'][i]['quote_asset_qty'] =
-                            config['pairs'][i]['quote_asset_qty'] +
-                            float(trades[j]['quoteQty'])
+                            config['pairs'][i]['base_asset_qty'] -= float(trades[j]['qty'])
+                            config['pairs'][i]['quote_asset_qty'] += float(trades[j]['quoteQty'])
 
                         config['pairs'][i]['fromId'] = trades[j]['id']
                         writeConfig()
@@ -196,27 +188,21 @@ def processAllTrades():
                                   '   new trade (buy) :', key,
                                   ' qty: ', trades[j]['qty'],
                                   ' price: ', trades[j]['price'])
-                            lastTrades[lastTradesCount] = ' ' +
-                            str(time.ctime((
-                                float(trades[j]['time']) / 1000.0))) +
-                            ' buy:' + '{0: <10}'.format(key) +
-                            ' qty: ' + '{0: <10}'.format(
-                                trades[j]['qty']) +
-                            ' price: ' + '{0: <10}'.format(
-                                trades[j]['price'])
+                            timestamp = str(time.ctime((float(trades[j]['time']) / 1000.0)))
+                            buy = ' buy:' + '{0: <10}'.format(key)
+                            qty = ' qty: ' + '{0: <10}'.format(trades[j]['qty'])
+                            price = ' price: ' + '{0: <10}'.format(trades[j]['price'])
+                            lastTrades[lastTradesCount] = ' ' + timestamp + buy + qty + price
                         else:
                             print(time.strftime(tf, time.gmtime()),
                                   '   new trade (sell):', key,
                                   ' qty: ', trades[j]['qty'],
                                   ' price: ', trades[j]['price'])
-                            lastTrades[lastTradesCount] = ' ' +
-                            str(time.ctime(
-                                (float(trades[j]['time']) / 1000.0))) +
-                            ' sell:' + '{0: <10}'.format(key) +
-                            ' qty: ' + '{0: <10}'.format(
-                                trades[j]['qty']) +
-                            ' price: ' + '{0: <10}'.format(
-                                trades[j]['price'])
+                            timestamp = str(time.ctime((float(trades[j]['time']) / 1000.0)))
+                            sell = ' sell:' + '{0: <10}'.format(key)
+                            qty = ' qty: ' + '{0: <10}'.format(trades[j]['qty'])
+                            price = ' price: ' + '{0: <10}'.format(trades[j]['price'])
+                            lastTrades[lastTradesCount] = ' ' + timestamp + sell + qty + price
 
                 except Exception as e:
                     print('')
@@ -298,8 +284,7 @@ def sendOrders():
             mybidp = bidpercentage * fairp
             myaskp = askpercentage * fairp
 
-            if float(mid) < 0.99 * mybidp or
-            float(mid) > 1.01 * myaskp:
+            if float(mid) < 0.99 * mybidp or float(mid) > 1.01 * myaskp:
                 circuitbreaker = False
                 print(time.strftime(tf, time.gmtime()),
                       '   please inspect quantities config file ' +
@@ -329,8 +314,7 @@ def sendOrders():
                       ' l: ', '{0: <9}'.format(str(mid)),
                       ' b: ', awayFromBuy)
 
-                myId = 'SHN-B-' + key + '-' +
-                str(int(time.time() - timeconst))
+                myId = 'SHN-B-' + key + '-' + str(int(time.time() - timeconst))
                 try:
                     client.order_limit_buy(symbol=key,
                                            quantity=orderbidq,
@@ -360,8 +344,7 @@ def sendOrders():
                       ' l: ', '{0: <9}'.format(str(mid)),
                       ' s: ', awayFromSell)
 
-                myId = 'SHN-S-' + key + '-' +
-                str(int(time.time() - timeconst))
+                myId = 'SHN-S-' + key + '-' + str(int(time.time() - timeconst))
                 try:
                     client.order_limit_sell(symbol=key,
                                             quantity=orderaskq,
@@ -423,8 +406,7 @@ while True and initialized:
 
         # send orders special or normal
         lastUpdate = time.time()
-        if time.time() > rebalanceUpdate + rebalance_interval_sec and
-        rebalance_interval_sec > 0:
+        if time.time() > rebalanceUpdate + rebalance_interval_sec and rebalance_interval_sec > 0:
             rebalanceUpdate = time.time()
             print(time.strftime(tf, time.gmtime()),
                   '   start sending special orders')
