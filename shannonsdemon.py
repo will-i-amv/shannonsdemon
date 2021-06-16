@@ -1,23 +1,60 @@
+from binance.client import Client
 import time
 import json
 import os
-from binance.client import Client
 
 
-def get_markets_info(configDict, binanceClient, timeFormat, circuitBreaker):
+timeconst = 1579349682.0
+infos = {}
+lastTrades = [None] * 3
+lastTradesCount = -1
+specialOrders = True
+tf = "%a, %d %b %Y %H:%M:%S"
+filename = 'config.json'
+circuitbreaker = True
+initialized = True
+firstrun = True
+
+# read config file
+try:
+    with open(filename) as json_data_file:
+        config = json.load(json_data_file)
+except Exception as e:
+    print(time.strftime(tf, time.gmtime()),
+          '   not able to read config file, ' +
+          'please fix and restart: ', e)
+    initialized = False
+# init binance client
+try:
+    publicKey = os.environ['PUBLIC_KEY']
+    privateKey = os.environ['PRIVATE_KEY']
+    client = Client(publicKey, privateKey)
+except Exception as e:
+    print(
+        time.strftime(tf, time.gmtime()),
+        '   not able to init client (internet connection?),' +
+        ' please fix and restart: ', e)
+    initialized = False
+
+
+def getMarketsInfo():
+    global circuitbreaker
     try:
-        info = binanceClient.get_exchange_info()
+        info = client.get_exchange_info()
     except Exception as e:
-        print(time.strftime(timeFormat, time.gmtime()),
-              '    circuitBreaker set to false, ' +
+        print(time.strftime(tf, time.gmtime()),
+              '    circuitbreaker set to false, ' +
               'cant get market info from exchange: ', e)
-        circuitBreaker = False
+        circuitbreaker = False
+
     formats = {}
-    for i in range(len(configDict['pairs'])):
-        key = configDict['pairs'][i]['market']
+    for i in range(len(config['pairs'])):
+        key = config['pairs'][i]['market']
         format = {}
+
         for market in info['symbols']:
             if market['symbol'] == key:
+
                 for filter in market['filters']:
                     if filter['filterType'] == 'LOT_SIZE':
                         stepSize = float(filter['stepSize'])
@@ -40,6 +77,7 @@ def get_markets_info(configDict, binanceClient, timeFormat, circuitBreaker):
                             stepSizesFormat = '{:.7f}'
                         elif t == 0.00000001:
                             stepSizesFormat = '{:.8f}'
+
                     if filter['filterType'] == 'PRICE_FILTER':
                         tickSize = (float(filter['tickSize']))
                         t = float(filter['tickSize'])
@@ -61,56 +99,62 @@ def get_markets_info(configDict, binanceClient, timeFormat, circuitBreaker):
                             tickSizesFormat = '{:.7f}'
                         elif t == 0.00000001:
                             tickSizesFormat = '{:.8f}'
+
         format['tickSizeFormat'] = tickSizesFormat
         format['stepSizeFormat'] = stepSizesFormat
         format['tickSize'] = tickSize
         format['stepSize'] = stepSize
+
         formats[key] = format
-    return formats, circuitBreaker
+
+    return formats
 
 
-def write_config(configDict, fileName, timeFormat, circuitBreaker):
+def writeConfig():
+    global circuitbreaker
     try:
-        with open(fileName, 'w') as outfile:
-            json.dump(configDict, outfile)
+        with open(filename, 'w') as outfile:
+            json.dump(config, outfile)
     except Exception as e:
-        print(time.strftime(timeFormat, time.gmtime()),
-              '    circuitBreaker set to false, ' +
+        print(time.strftime(tf, time.gmtime()),
+              '    circuitbreaker set to false, ' +
               'cant write to file: ', e)
-        circuitBreaker = False
-    return circuitBreaker
+        circuitbreaker = False
 
 
-def cancel_all_orders(binanceClient, configDict, timeFormat, circuitBreaker=True):
+def cancelAllOrders():
+    global circuitbreaker
+    circuitbreaker = True
     try:
-        for i in range(len(configDict['pairs'])):
-            key = configDict['pairs'][i]['market']
-            crtOrders = binanceClient.get_open_orders(symbol=key)
+        for i in range(len(config['pairs'])):
+            key = config['pairs'][i]['market']
+            crtOrders = client.get_open_orders(symbol=key)
             if len(crtOrders) > 0:
                 for j, val in enumerate(crtOrders):
                     if crtOrders[j]['clientOrderId'][0:3] == 'SHN':
-                        binanceClient.cancel_order(symbol=key,
+                        client.cancel_order(symbol=key,
                                             orderId=crtOrders[j]['orderId'])
                     time.sleep(1.05)
 
     except Exception as e:
-        print(time.strftime(timeFormat, time.gmtime()),
-              '   circuitBreaker set to false, ' +
+        print(time.strftime(tf, time.gmtime()),
+              '   circuitbreaker set to false, ' +
               'cannot cancel all orders: ', e)
-        circuitBreaker = False
+        circuitbreaker = False
         time.sleep(5.0)
-    
-    return circuitBreaker
 
 
-def process_all_trades(configDict, binanceClient, lastTrades, lastTradesCounter, timeFormat, circuitBreaker=True):
-    #ordersAllowed = False
+def processAllTrades():
+
+    global config, lastTrades, lastTradesCount, ordersAllowed, circuitbreaker
+    circuitbreaker = True
+
     try:
-        for i in range(len(configDict['pairs'])):
+        for i in range(len(config['pairs'])):
 
-            key = configDict['pairs'][i]['market']
-            lastId = configDict['pairs'][i]['fromId']
-            tradesTemp = binanceClient.get_my_trades(symbol=key,
+            key = config['pairs'][i]['market']
+            lastId = config['pairs'][i]['fromId']
+            tradesTemp = client.get_my_trades(symbol=key,
                                               limit=1000,
                                               fromId=lastId + 1)
             trades = []
@@ -121,73 +165,75 @@ def process_all_trades(configDict, binanceClient, lastTrades, lastTradesCounter,
 
                 try:
 
-                    order = binanceClient.get_order(symbol=key,
+                    order = client.get_order(symbol=key,
                                              orderId=trades[j]['orderId'])
 
                     if order['clientOrderId'][0:3] == 'SHN':
 
                         if trades[j]['isBuyer']:
-                            configDict['pairs'][i]['base_asset_qty'] += float(trades[j]['qty'])
-                            configDict['pairs'][i]['quote_asset_qty'] -= float(trades[j]['quoteQty'])
+                            config['pairs'][i]['base_asset_qty'] += float(trades[j]['qty'])
+                            config['pairs'][i]['quote_asset_qty'] -= float(trades[j]['quoteQty'])
                         else:
-                            configDict['pairs'][i]['base_asset_qty'] -= float(trades[j]['qty'])
-                            configDict['pairs'][i]['quote_asset_qty'] += float(trades[j]['quoteQty'])
+                            config['pairs'][i]['base_asset_qty'] -= float(trades[j]['qty'])
+                            config['pairs'][i]['quote_asset_qty'] += float(trades[j]['quoteQty'])
 
-                        configDict['pairs'][i]['fromId'] = trades[j]['id']
-                        circuitBreaker = write_config(configDict, fileName, timeFormat, circuitBreaker)
+                        config['pairs'][i]['fromId'] = trades[j]['id']
+                        writeConfig()
 
-                        lastTradesCounter = lastTradesCounter + 1
-                        if lastTradesCounter >= 3:
-                            lastTradesCounter = 0
+                        lastTradesCount = lastTradesCount + 1
+                        if lastTradesCount >= 3:
+                            lastTradesCount = 0
                         if trades[j]['isBuyer']:
-                            print(time.strftime(timeFormat, time.gmtime()),
+                            print(time.strftime(tf, time.gmtime()),
                                   '   new trade (buy) :', key,
                                   ' qty: ', trades[j]['qty'],
                                   ' price: ', trades[j]['price'])
-                            timeStamp = str(time.ctime((float(trades[j]['time']) / 1000.0)))
+                            timestamp = str(time.ctime((float(trades[j]['time']) / 1000.0)))
                             buy = ' buy:' + '{0: <10}'.format(key)
                             qty = ' qty: ' + '{0: <10}'.format(trades[j]['qty'])
                             price = ' price: ' + '{0: <10}'.format(trades[j]['price'])
-                            lastTrades[lastTradesCounter] = ' ' + timeStamp + buy + qty + price
+                            lastTrades[lastTradesCount] = ' ' + timestamp + buy + qty + price
                         else:
-                            print(time.strftime(timeFormat, time.gmtime()),
+                            print(time.strftime(tf, time.gmtime()),
                                   '   new trade (sell):', key,
                                   ' qty: ', trades[j]['qty'],
                                   ' price: ', trades[j]['price'])
-                            timeStamp = str(time.ctime((float(trades[j]['time']) / 1000.0)))
+                            timestamp = str(time.ctime((float(trades[j]['time']) / 1000.0)))
                             sell = ' sell:' + '{0: <10}'.format(key)
                             qty = ' qty: ' + '{0: <10}'.format(trades[j]['qty'])
                             price = ' price: ' + '{0: <10}'.format(trades[j]['price'])
-                            lastTrades[lastTradesCounter] = ' ' + timeStamp + sell + qty + price
+                            lastTrades[lastTradesCount] = ' ' + timestamp + sell + qty + price
 
                 except Exception as e:
                     print('')
 
             time.sleep(1.1)
     except Exception as e:
-        print(time.strftime(timeFormat, time.gmtime()),
-              '   circuitBreaker set to fasle, ' +
+        print(time.strftime(tf, time.gmtime()),
+              '   circuitbreaker set to fasle, ' +
               'not able to process all trades ', e)
-        circuitBreaker = False
-    return circuitBreaker
+        circuitbreaker = False
 
 
-def send_orders(configDict, binanceClient, initialized, firstRun, infos, specialOrders, timeFormat, timeConstant, circuitBreaker):
+def sendOrders():
+    global config, initialized, firstrun
+
     try:
-        for i in range(len(configDict['pairs'])):
-            circuitBreaker=True
-            key = configDict['pairs'][i]['market']
-            coin = float(configDict['pairs'][i]['base_asset_qty'])
+        for i in range(len(config['pairs'])):
+
+            circuitbreaker = True
+            key = config['pairs'][i]['market']
+            coin = float(config['pairs'][i]['base_asset_qty'])
             ticksize = infos[key]['tickSize']
             ticksizeformat = infos[key]['tickSizeFormat']
             stepsizeformat = infos[key]['stepSizeFormat']
 
             try:
-                prices = binanceClient.get_ticker(symbol=key)
-                circuitBreaker = True
+                prices = client.get_ticker(symbol=key)
+                circuitbreaker = True
             except Exception as e:
-                circuitBreaker = False
-                print(time.strftime(timeFormat, time.gmtime()),
+                circuitbreaker = False
+                print(time.strftime(tf, time.gmtime()),
                       '   not able to get price ', e)
 
             bidp = float(prices['bidPrice'])
@@ -195,7 +241,7 @@ def send_orders(configDict, binanceClient, initialized, firstRun, infos, special
             mid = ticksizeformat.format(0.5 * (bidp + askp))
 
             totcoin = float(coin)
-            totcash = float(configDict['pairs'][i]['quote_asset_qty'])
+            totcash = float(config['pairs'][i]['quote_asset_qty'])
 
             fairp = totcash / totcoin
 
@@ -209,7 +255,7 @@ def send_orders(configDict, binanceClient, initialized, firstRun, infos, special
                 if float(awayFromMid) >= 0.05:
                     bidpercentage = min(
                         0.95,
-                        float(configDict['pairs'][i]['buy_percentage']))
+                        float(config['pairs'][i]['buy_percentage']))
                     askpercentage = max(
                         1.05,
                         1.0 + float(awayFromMid))
@@ -219,34 +265,34 @@ def send_orders(configDict, binanceClient, initialized, firstRun, infos, special
                         1.0 + float(awayFromMid))
                     askpercentage = max(
                         1.05,
-                        float(configDict['pairs'][i]['sell_percentage']))
+                        float(config['pairs'][i]['sell_percentage']))
                 else:
                     bidpercentage = min(
                         0.95,
-                        float(configDict['pairs'][i]['buy_percentage']))
+                        float(config['pairs'][i]['buy_percentage']))
                     askpercentage = max(
                         1.05,
-                        float(configDict['pairs'][i]['sell_percentage']))
+                        float(config['pairs'][i]['sell_percentage']))
             else:
                 bidpercentage = min(
                     0.95,
-                    float(configDict['pairs'][i]['buy_percentage']))
+                    float(config['pairs'][i]['buy_percentage']))
                 askpercentage = max(
                     1.05,
-                    float(configDict['pairs'][i]['sell_percentage']))
+                    float(config['pairs'][i]['sell_percentage']))
 
             mybidp = bidpercentage * fairp
             myaskp = askpercentage * fairp
 
             if float(mid) < 0.99 * mybidp or float(mid) > 1.01 * myaskp:
-                circuitBreaker = False
-                print(time.strftime(timeFormat, time.gmtime()),
-                      '   please inspect quantities configDict file ' +
+                circuitbreaker = False
+                print(time.strftime(tf, time.gmtime()),
+                      '   please inspect quantities config file ' +
                       'as bot hits market')
-                if firstRun:
+                if firstrun:
                     initialized = False
             else:
-                circuitBreaker = True
+                circuitbreaker = True
 
             mybidq = stepsizeformat.format(
                 (0.5 * (totcoin * mybidp + totcash) - totcoin * mybidp)
@@ -259,8 +305,8 @@ def send_orders(configDict, binanceClient, initialized, firstRun, infos, special
             orderbidp = ticksizeformat.format(
                 min(mybidp, bidp + ticksize))
             orderbidq = mybidq
-            if configDict['state'] == 'TRADE' and circuitBreaker:
-                print(time.strftime(timeFormat, time.gmtime()),
+            if config['state'] == 'TRADE' and circuitbreaker:
+                print(time.strftime(tf, time.gmtime()),
                       '   send buy  order: ',
                       '{0: <9}'.format(key),
                       ' p: ', '{0: <9}'.format(str(orderbidp)),
@@ -268,18 +314,18 @@ def send_orders(configDict, binanceClient, initialized, firstRun, infos, special
                       ' l: ', '{0: <9}'.format(str(mid)),
                       ' b: ', awayFromBuy)
 
-                myId = 'SHN-B-' + key + '-' + str(int(time.time() - timeConstant))
+                myId = 'SHN-B-' + key + '-' + str(int(time.time() - timeconst))
                 try:
-                    binanceClient.order_limit_buy(symbol=key,
+                    client.order_limit_buy(symbol=key,
                                            quantity=orderbidq,
                                            price=orderbidp,
-                                           newbinanceClientOrderId=myId)
+                                           newClientOrderId=myId)
                 except Exception as e:
-                    print(time.strftime(timeFormat, time.gmtime()),
+                    print(time.strftime(tf, time.gmtime()),
                           '   not able to send buy order for: ', key,
                           ' because: ', e)
             else:
-                print(time.strftime(timeFormat, time.gmtime()),
+                print(time.strftime(tf, time.gmtime()),
                       '   send DUMMY  buy order: ', '{0: <9}'.format(key),
                       ' p: ', '{0: <9}'.format(str(orderbidp)),
                       ' q: ', '{0: <8}'.format(str(mybidq)),
@@ -290,26 +336,26 @@ def send_orders(configDict, binanceClient, initialized, firstRun, infos, special
             orderaskp = ticksizeformat.format(
                 max(myaskp, askp - ticksize))
             orderaskq = myaskq
-            if configDict['state'] == 'TRADE' and circuitBreaker:
-                print(time.strftime(timeFormat, time.gmtime()),
+            if config['state'] == 'TRADE' and circuitbreaker:
+                print(time.strftime(tf, time.gmtime()),
                       '   send sell order: ', '{0: <9}'.format(key),
                       ' p: ', '{0: <9}'.format(str(orderaskp)),
                       ' q: ', '{0: <8}'.format(str(myaskq)),
                       ' l: ', '{0: <9}'.format(str(mid)),
                       ' s: ', awayFromSell)
 
-                myId = 'SHN-S-' + key + '-' + str(int(time.time() - timeConstant))
+                myId = 'SHN-S-' + key + '-' + str(int(time.time() - timeconst))
                 try:
-                    binanceClient.order_limit_sell(symbol=key,
+                    client.order_limit_sell(symbol=key,
                                             quantity=orderaskq,
                                             price=orderaskp,
-                                            newbinanceClientOrderId=myId)
+                                            newClientOrderId=myId)
                 except Exception as e:
-                    print(time.strftime(timeFormat, time.gmtime()),
+                    print(time.strftime(tf, time.gmtime()),
                           '   not able to send sell order for: ', key,
                           ' because: ', e)
             else:
-                print(time.strftime(timeFormat, time.gmtime()),
+                print(time.strftime(tf, time.gmtime()),
                       '   send DUMMY sell order: ', '{0: <9}'.format(key),
                       ' p: ', '{0: <9}'.format(str(orderaskp)),
                       ' q: ', '{0: <8}'.format(str(myaskq)),
@@ -317,101 +363,86 @@ def send_orders(configDict, binanceClient, initialized, firstRun, infos, special
                       ' s: ', awayFromSell)
 
     except Exception as e:
-        print(time.strftime(timeFormat, time.gmtime()),
+        print(time.strftime(tf, time.gmtime()),
               '    not able to send orders ',
               e)
 
-    firstRun = False
-    return firstRun, initialized
+    firstrun = False
 
-def main():
 
-    timeConstant = 1579349682.0
-    infos = {}
-    lastTrades = [None] * 3
-    lastTradesCounter = -1
-    specialOrders = True
-    timeFormat = "%a, %d %b %Y %H:%M:%S"
-    fileName = 'config.json'
-    circuitBreaker = True
-    initialized = True
-    firstRun = True
-    timeStamp = time.strftime(timeFormat, time.gmtime())
+wait_interval_sec = float(config['sleep_seconds_after_cancel_orders'])
+quote_interval_sec = float(config['sleep_seconds_after_send_orders'])
+rebalance_interval_sec = float(config['rebalance_interval_sec'])
+lastUpdate = time.time()
 
-    # read config file
-    try:
-        with open(fileName) as json_data_file:
-            configDict = json.load(json_data_file)
-    except Exception as e:
-        print(timeStamp,
-            '   not able to read config file, ' +
-            'please fix and restart: ', e)
-        initialized = False
+if initialized:
+    print(time.strftime(tf, time.gmtime()),
+          '   start initializing')
+    infos = getMarketsInfo()
+    time.sleep(5)
+    print(time.strftime(tf, time.gmtime()),
+          '   end initializing')
 
-    # init binance binanceClient
-    try:
-        publicKey = os.environ['PUBLIC_KEY']
-        privateKey = os.environ['PRIVATE_KEY']
-        binanceClient = Client(publicKey, privateKey)
-    except Exception as e:
-        print(timeStamp,
-              '   not able to init client,' +
-              ' please fix and restart: ', e)
-        initialized = False
+    print(time.strftime(tf, time.gmtime()),
+          '   start cancel all orders')
+    cancelAllOrders()
+    print(time.strftime(tf, time.gmtime()),
+          '   end cancel all orders')
+    # if start with rebalance:   - rebalance_interval_sec -1.0
+    rebalanceUpdate = time.time()
 
-    waitIntervalSeconds = float(configDict['sleep_seconds_after_cancel_orders'])
-    quoteIntervalSeconds = float(configDict['sleep_seconds_after_send_orders'])
-    rebalanceIntervalSeconds = float(configDict['rebalanceIntervalSeconds'])
-    lastUpdate = time.time()
+while True and initialized:
 
-    if initialized:
+    if not circuitbreaker:
+        print(time.strftime(tf, time.gmtime()),
+              '   circuitbreaker false, do not send orders')
+    else:
 
-        print(timeStamp, '   start initializing')
-        infos, circuitBreaker = get_markets_info(configDict, binanceClient, timeFormat, circuitBreaker)
-        time.sleep(5)
-        print(timeStamp, '   end initializing')
-        print(timeStamp, '   start cancel all orders')
-        circuitBreaker = cancel_all_orders(binanceClient, configDict, timeFormat, circuitBreaker)
-        print(timeStamp, '   end cancel all orders')
-        rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
+        print(time.strftime(tf, time.gmtime()),
+              '   start processing trades')
+        processAllTrades()
+        print(time.strftime(tf, time.gmtime()),
+              '   end processing trades')
 
-    while True and initialized:
-
-        if not circuitBreaker:
-            print(timeStamp, '   circuitBreaker false, do not send orders')
-        else:
-            print(timeStamp, '   start processing trades')
-            circuitBreaker = process_all_trades(configDict, binanceClient, lastTrades, lastTradesCounter, timeFormat, circuitBreaker)
-            print(timeStamp, '   end processing trades')
-
-            # send orders special or normal
-            lastUpdate = time.time()
-            if time.time() > rebalanceUpdate + rebalanceIntervalSeconds and rebalanceIntervalSeconds > 0:
-                rebalanceUpdate = time.time()
-                print(timeStamp, '   start sending special orders')
-                specialOrders = True
-                firstRun, initialized = send_orders(configDict, binanceClient, initialized, firstRun, infos, specialOrders, timeFormat, timeConstant, circuitBreaker)
-                specialOrders = False
-                print(timeStamp, '   end sending special orders')
-            else:
-                print(timeStamp, '   start sending orders')
-                firstRun, initialized = send_orders(configDict, binanceClient, initialized, firstRun, infos, specialOrders, timeFormat, timeConstant, circuitBreaker)
-                print(timeStamp, '   end sending orders')
-
-            for i in range(len(lastTrades)):
-                if lastTrades[i] is not None:
-                    print(timeStamp, '   last 3 trades: ', lastTrades[i])
-
-        print(timeStamp, '   sleep for: ', quoteIntervalSeconds, ' seconds')
-        time.sleep(quoteIntervalSeconds)
-
+        # send orders special or normal
         lastUpdate = time.time()
-        print(timeStamp, '   start cancel all orders')
-        circuitBreaker = cancel_all_orders(binanceClient, configDict, timeFormat, circuitBreaker)
-        print(timeStamp, '   end cancel all orders')
-        print(timeStamp, '   sleep for: ', waitIntervalSeconds, ' seconds')
-        time.sleep(waitIntervalSeconds)
+        if time.time() > rebalanceUpdate + rebalance_interval_sec and rebalance_interval_sec > 0:
+            rebalanceUpdate = time.time()
+            print(time.strftime(tf, time.gmtime()),
+                  '   start sending special orders')
+            specialOrders = True
+            sendOrders()
+            specialOrders = False
+            print(time.strftime(tf, time.gmtime()),
+                  '   end sending special orders')
+        else:
+            print(time.strftime(tf, time.gmtime()),
+                  '   start sending orders')
+            sendOrders()
+            print(time.strftime(tf, time.gmtime()),
+                  '   end sending orders')
 
+        for i in range(len(lastTrades)):
+            if lastTrades[i] is not None:
+                print(time.strftime(tf, time.gmtime()),
+                      '   last 3 trades: ',
+                      lastTrades[i])
 
-if __name__ == "__main__":
-    main()
+    print(time.strftime(tf, time.gmtime()),
+          '   sleep for: ',
+          quote_interval_sec,
+          ' seconds')
+    time.sleep(quote_interval_sec)
+
+    # cancel orders
+    lastUpdate = time.time()
+    print(time.strftime(tf, time.gmtime()),
+          '   start cancel all orders')
+    cancelAllOrders()
+    print(time.strftime(tf, time.gmtime()),
+          '   end cancel all orders')
+
+    print(time.strftime(tf, time.gmtime()),
+          '   sleep for: ',
+          wait_interval_sec, ' seconds')
+    time.sleep(wait_interval_sec)
