@@ -1,44 +1,10 @@
-from binance.client import Client
 import time
 import json
 import os
+from binance.client import Client
 
 
-timeconst = 1579349682.0
-infos = {}
-lastTrades = [None] * 3
-lastTradesCount = -1
-specialOrders = True
-tf = "%a, %d %b %Y %H:%M:%S"
-filename = 'config.json'
-circuitbreaker = True
-initialized = True
-firstrun = True
-
-# read config file
-try:
-    with open(filename) as json_data_file:
-        config = json.load(json_data_file)
-except Exception as e:
-    print(time.strftime(tf, time.gmtime()),
-          '   not able to read config file, ' +
-          'please fix and restart: ', e)
-    initialized = False
-# init binance client
-try:
-    publicKey = os.environ['PUBLIC_KEY']
-    privateKey = os.environ['PRIVATE_KEY']
-    client = Client(publicKey, privateKey)
-except Exception as e:
-    print(
-        time.strftime(tf, time.gmtime()),
-        '   not able to init client (internet connection?),' +
-        ' please fix and restart: ', e)
-    initialized = False
-
-
-def getMarketsInfo():
-    global circuitbreaker
+def getMarketsInfo(config, client, tf, circuitbreaker):
     try:
         info = client.get_exchange_info()
     except Exception as e:
@@ -46,15 +12,12 @@ def getMarketsInfo():
               '    circuitbreaker set to false, ' +
               'cant get market info from exchange: ', e)
         circuitbreaker = False
-
     formats = {}
     for i in range(len(config['pairs'])):
         key = config['pairs'][i]['market']
         format = {}
-
         for market in info['symbols']:
             if market['symbol'] == key:
-
                 for filter in market['filters']:
                     if filter['filterType'] == 'LOT_SIZE':
                         stepSize = float(filter['stepSize'])
@@ -77,7 +40,6 @@ def getMarketsInfo():
                             stepSizesFormat = '{:.7f}'
                         elif t == 0.00000001:
                             stepSizesFormat = '{:.8f}'
-
                     if filter['filterType'] == 'PRICE_FILTER':
                         tickSize = (float(filter['tickSize']))
                         t = float(filter['tickSize'])
@@ -99,19 +61,15 @@ def getMarketsInfo():
                             tickSizesFormat = '{:.7f}'
                         elif t == 0.00000001:
                             tickSizesFormat = '{:.8f}'
-
         format['tickSizeFormat'] = tickSizesFormat
         format['stepSizeFormat'] = stepSizesFormat
         format['tickSize'] = tickSize
         format['stepSize'] = stepSize
-
         formats[key] = format
+    return formats, circuitbreaker
 
-    return formats
 
-
-def writeConfig():
-    global circuitbreaker
+def writeConfig(circuitbreaker):
     try:
         with open(filename, 'w') as outfile:
             json.dump(config, outfile)
@@ -120,11 +78,9 @@ def writeConfig():
               '    circuitbreaker set to false, ' +
               'cant write to file: ', e)
         circuitbreaker = False
+    return circuitbreaker
 
-
-def cancelAllOrders():
-    global circuitbreaker
-    circuitbreaker = True
+def cancelAllOrders(client, config, tf, circuitbreaker=True):
     try:
         for i in range(len(config['pairs'])):
             key = config['pairs'][i]['market']
@@ -142,13 +98,12 @@ def cancelAllOrders():
               'cannot cancel all orders: ', e)
         circuitbreaker = False
         time.sleep(5.0)
+    
+    return circuitbreaker
 
 
-def processAllTrades():
-
-    global config, lastTrades, lastTradesCount, ordersAllowed, circuitbreaker
-    circuitbreaker = True
-
+def processAllTrades(config, client, lastTrades, lastTradesCount, tf, circuitbreaker=True):
+    #ordersAllowed = False
     try:
         for i in range(len(config['pairs'])):
 
@@ -178,7 +133,7 @@ def processAllTrades():
                             config['pairs'][i]['quote_asset_qty'] += float(trades[j]['quoteQty'])
 
                         config['pairs'][i]['fromId'] = trades[j]['id']
-                        writeConfig()
+                        circuitbreaker = writeConfig(circuitbreaker)
 
                         lastTradesCount = lastTradesCount + 1
                         if lastTradesCount >= 3:
@@ -213,15 +168,13 @@ def processAllTrades():
               '   circuitbreaker set to fasle, ' +
               'not able to process all trades ', e)
         circuitbreaker = False
+    return circuitbreaker
 
 
-def sendOrders():
-    global config, initialized, firstrun
-
+def sendOrders(config, client, initialized, firstrun, infos, specialOrders, tf, timeconst, circuitbreaker):
     try:
         for i in range(len(config['pairs'])):
-
-            circuitbreaker = True
+            circuitbreaker=True
             key = config['pairs'][i]['market']
             coin = float(config['pairs'][i]['base_asset_qty'])
             ticksize = infos[key]['tickSize']
@@ -368,81 +321,119 @@ def sendOrders():
               e)
 
     firstrun = False
+    return firstrun, initialized
 
+def main():
 
-wait_interval_sec = float(config['sleep_seconds_after_cancel_orders'])
-quote_interval_sec = float(config['sleep_seconds_after_send_orders'])
-rebalance_interval_sec = float(config['rebalance_interval_sec'])
-lastUpdate = time.time()
+    timeconst = 1579349682.0
+    infos = {}
+    lastTrades = [None] * 3
+    lastTradesCount = -1
+    specialOrders = True
+    tf = "%a, %d %b %Y %H:%M:%S"
+    filename = 'config.json'
+    circuitbreaker = True
+    initialized = True
+    firstrun = True
 
-if initialized:
-    print(time.strftime(tf, time.gmtime()),
-          '   start initializing')
-    infos = getMarketsInfo()
-    time.sleep(5)
-    print(time.strftime(tf, time.gmtime()),
-          '   end initializing')
-
-    print(time.strftime(tf, time.gmtime()),
-          '   start cancel all orders')
-    cancelAllOrders()
-    print(time.strftime(tf, time.gmtime()),
-          '   end cancel all orders')
-    # if start with rebalance:   - rebalance_interval_sec -1.0
-    rebalanceUpdate = time.time()
-
-while True and initialized:
-
-    if not circuitbreaker:
+    # read config file
+    try:
+        with open(filename) as json_data_file:
+            config = json.load(json_data_file)
+    except Exception as e:
         print(time.strftime(tf, time.gmtime()),
-              '   circuitbreaker false, do not send orders')
-    else:
+            '   not able to read config file, ' +
+            'please fix and restart: ', e)
+        initialized = False
 
-        print(time.strftime(tf, time.gmtime()),
-              '   start processing trades')
-        processAllTrades()
-        print(time.strftime(tf, time.gmtime()),
-              '   end processing trades')
+    # init binance client
+    try:
+        publicKey = os.environ['PUBLIC_KEY']
+        privateKey = os.environ['PRIVATE_KEY']
+        client = Client(publicKey, privateKey)
+    except Exception as e:
+        print(
+            time.strftime(tf, time.gmtime()),
+            '   not able to init client (internet connection?),' +
+            ' please fix and restart: ', e)
+        initialized = False
 
-        # send orders special or normal
-        lastUpdate = time.time()
-        if time.time() > rebalanceUpdate + rebalance_interval_sec and rebalance_interval_sec > 0:
-            rebalanceUpdate = time.time()
-            print(time.strftime(tf, time.gmtime()),
-                  '   start sending special orders')
-            specialOrders = True
-            sendOrders()
-            specialOrders = False
-            print(time.strftime(tf, time.gmtime()),
-                  '   end sending special orders')
-        else:
-            print(time.strftime(tf, time.gmtime()),
-                  '   start sending orders')
-            sendOrders()
-            print(time.strftime(tf, time.gmtime()),
-                  '   end sending orders')
-
-        for i in range(len(lastTrades)):
-            if lastTrades[i] is not None:
-                print(time.strftime(tf, time.gmtime()),
-                      '   last 3 trades: ',
-                      lastTrades[i])
-
-    print(time.strftime(tf, time.gmtime()),
-          '   sleep for: ',
-          quote_interval_sec,
-          ' seconds')
-    time.sleep(quote_interval_sec)
-
-    # cancel orders
+    wait_interval_sec = float(config['sleep_seconds_after_cancel_orders'])
+    quote_interval_sec = float(config['sleep_seconds_after_send_orders'])
+    rebalance_interval_sec = float(config['rebalance_interval_sec'])
     lastUpdate = time.time()
-    print(time.strftime(tf, time.gmtime()),
-          '   start cancel all orders')
-    cancelAllOrders()
-    print(time.strftime(tf, time.gmtime()),
-          '   end cancel all orders')
 
-    print(time.strftime(tf, time.gmtime()),
-          '   sleep for: ',
-          wait_interval_sec, ' seconds')
-    time.sleep(wait_interval_sec)
+    if initialized:
+        print(time.strftime(tf, time.gmtime()),
+            '   start initializing')
+        infos, circuitbreaker = getMarketsInfo(config, client, tf, circuitbreaker)
+        time.sleep(5)
+        print(time.strftime(tf, time.gmtime()),
+            '   end initializing')
+
+        print(time.strftime(tf, time.gmtime()),
+            '   start cancel all orders')
+        circuitbreaker = cancelAllOrders(client, config, tf, circuitbreaker)
+        print(time.strftime(tf, time.gmtime()),
+            '   end cancel all orders')
+        # if start with rebalance:   - rebalance_interval_sec -1.0
+        rebalanceUpdate = time.time()
+
+    while True and initialized:
+
+        if not circuitbreaker:
+            print(time.strftime(tf, time.gmtime()),
+                '   circuitbreaker false, do not send orders')
+        else:
+
+            print(time.strftime(tf, time.gmtime()),
+                '   start processing trades')
+            circuitbreaker = processAllTrades(config, client, lastTrades, lastTradesCount, tf, circuitbreaker)
+            print(time.strftime(tf, time.gmtime()),
+                '   end processing trades')
+
+            # send orders special or normal
+            lastUpdate = time.time()
+            if time.time() > rebalanceUpdate + rebalance_interval_sec and rebalance_interval_sec > 0:
+                rebalanceUpdate = time.time()
+                print(time.strftime(tf, time.gmtime()),
+                    '   start sending special orders')
+                specialOrders = True
+                firstrun, initialized = sendOrders(config, client, initialized, firstrun, infos, specialOrders, tf, timeconst, circuitbreaker)
+                specialOrders = False
+                print(time.strftime(tf, time.gmtime()),
+                    '   end sending special orders')
+            else:
+                print(time.strftime(tf, time.gmtime()),
+                    '   start sending orders')
+                firstrun, initialized = sendOrders(config, client, initialized, firstrun, infos, specialOrders, tf, timeconst, circuitbreaker)
+                print(time.strftime(tf, time.gmtime()),
+                    '   end sending orders')
+
+            for i in range(len(lastTrades)):
+                if lastTrades[i] is not None:
+                    print(time.strftime(tf, time.gmtime()),
+                        '   last 3 trades: ',
+                        lastTrades[i])
+
+        print(time.strftime(tf, time.gmtime()),
+            '   sleep for: ',
+            quote_interval_sec,
+            ' seconds')
+        time.sleep(quote_interval_sec)
+
+        lastUpdate = time.time()
+        print(time.strftime(tf, time.gmtime()),
+            '   start cancel all orders')
+        circuitbreaker = cancelAllOrders(client, config, tf, circuitbreaker)
+        print(time.strftime(tf, time.gmtime()),
+            '   end cancel all orders')
+
+        print(time.strftime(tf, time.gmtime()),
+            '   sleep for: ',
+            wait_interval_sec, ' seconds')
+        time.sleep(wait_interval_sec)
+
+
+if __name__ == "__main__":
+    main()
