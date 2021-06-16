@@ -1,6 +1,8 @@
 from binance.client import Client
 import time
 import json
+import os
+
 
 timeconst = 1579349682.0
 infos = {}
@@ -24,7 +26,9 @@ except Exception as e:
     initialized = False
 # init binance client
 try:
-    client = Client(config['publickey'], config['secretkey'])
+    publicKey = os.environ['PUBLIC_KEY']
+    privateKey = os.environ['PRIVATE_KEY']
+    client = Client(publicKey, privateKey)
 except Exception as e:
     print(
         time.strftime(tf, time.gmtime()),
