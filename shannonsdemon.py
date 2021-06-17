@@ -29,60 +29,54 @@ class ShannonsDemon():
         return marketPairsBinance
 
 
-    def get_formats(self, marketPairsLocal, marketPairsBinance):
-        formats = {}
-        for i in range(len(marketPairsLocal)):
-            key = marketPairsLocal[i]['market']
-            format = {}
-            for market in marketPairsBinance['symbols']:
-                if market['symbol'] == key:
-                    for filter in market['filters']:
-                        if filter['filterType'] == 'LOT_SIZE':
-                            stepSize = float(filter['stepSize'])
-                            if stepSize >= 1.0:
-                                stepSizesFormat = '{:.0f}'
-                            elif stepSize == 0.1:
-                                stepSizesFormat = '{:.1f}'
-                            elif stepSize == 0.01:
-                                stepSizesFormat = '{:.2f}'
-                            elif stepSize == 0.001:
-                                stepSizesFormat = '{:.3f}'
-                            elif stepSize == 0.0001:
-                                stepSizesFormat = '{:.4f}'
-                            elif stepSize == 0.00001:
-                                stepSizesFormat = '{:.5f}'
-                            elif stepSize == 0.000001:
-                                stepSizesFormat = '{:.6f}'
-                            elif stepSize == 0.0000001:
-                                stepSizesFormat = '{:.7f}'
-                            elif stepSize == 0.00000001:
-                                stepSizesFormat = '{:.8f}'
-                        if filter['filterType'] == 'PRICE_FILTER':
-                            tickSize = float(filter['tickSize'])
-                            if tickSize >= 1.0:
-                                tickSizesFormat = '{:.0f}'
-                            elif tickSize == 0.1:
-                                tickSizesFormat = '{:.1f}'
-                            elif tickSize == 0.01:
-                                tickSizesFormat = '{:.2f}'
-                            elif tickSize == 0.001:
-                                tickSizesFormat = '{:.3f}'
-                            elif tickSize == 0.0001:
-                                tickSizesFormat = '{:.4f}'
-                            elif tickSize == 0.00001:
-                                tickSizesFormat = '{:.5f}'
-                            elif tickSize == 0.000001:
-                                tickSizesFormat = '{:.6f}'
-                            elif tickSize == 0.0000001:
-                                tickSizesFormat = '{:.7f}'
-                            elif tickSize == 0.00000001:
-                                tickSizesFormat = '{:.8f}'
-            format['tickSizeFormat'] = tickSizesFormat
-            format['stepSizeFormat'] = stepSizesFormat
-            format['tickSize'] = tickSize
-            format['stepSize'] = stepSize
-            formats[key] = format
-        return formats
+    def get_market_parameters(self, market):
+        parameters = {}
+        for marketFilter in market['filters']:
+            if marketFilter['filterType'] == 'LOT_SIZE':
+                stepSize = float(marketFilter['stepSize'])
+                if stepSize >= 1.0:
+                    stepSizesFormat = '{:.0f}'
+                elif stepSize == 0.1:
+                    stepSizesFormat = '{:.1f}'
+                elif stepSize == 0.01:
+                    stepSizesFormat = '{:.2f}'
+                elif stepSize == 0.001:
+                    stepSizesFormat = '{:.3f}'
+                elif stepSize == 0.0001:
+                    stepSizesFormat = '{:.4f}'
+                elif stepSize == 0.00001:
+                    stepSizesFormat = '{:.5f}'
+                elif stepSize == 0.000001:
+                    stepSizesFormat = '{:.6f}'
+                elif stepSize == 0.0000001:
+                    stepSizesFormat = '{:.7f}'
+                elif stepSize == 0.00000001:
+                    stepSizesFormat = '{:.8f}'
+            if marketFilter['filterType'] == 'PRICE_FILTER':
+                tickSize = float(marketFilter['tickSize'])
+                if tickSize >= 1.0:
+                    tickSizesFormat = '{:.0f}'
+                elif tickSize == 0.1:
+                    tickSizesFormat = '{:.1f}'
+                elif tickSize == 0.01:
+                    tickSizesFormat = '{:.2f}'
+                elif tickSize == 0.001:
+                    tickSizesFormat = '{:.3f}'
+                elif tickSize == 0.0001:
+                    tickSizesFormat = '{:.4f}'
+                elif tickSize == 0.00001:
+                    tickSizesFormat = '{:.5f}'
+                elif tickSize == 0.000001:
+                    tickSizesFormat = '{:.6f}'
+                elif tickSize == 0.0000001:
+                    tickSizesFormat = '{:.7f}'
+                elif tickSize == 0.00000001:
+                    tickSizesFormat = '{:.8f}'
+        parameters['tickSizeFormat'] = tickSizesFormat
+        parameters['stepSizeFormat'] = stepSizesFormat
+        parameters['tickSize'] = tickSize
+        parameters['stepSize'] = stepSize
+        return parameters
 
 
     def write_config(self, config, filename):
@@ -179,16 +173,16 @@ class ShannonsDemon():
             self.circuitBreaker = False
 
 
-    def send_orders(self, config, client, infos):
+    def send_orders(self, config, client, marketsInfo):
         try:
             for i in range(len(config['pairs'])):
 
                 self.circuitBreaker = True
                 pair = config['pairs'][i]['market']
                 coin = float(config['pairs'][i]['base_asset_qty'])
-                tickSize = infos[pair]['tickSize']
-                tickSizeFormat = infos[pair]['tickSizeFormat']
-                stepSizeFormat = infos[pair]['stepSizeFormat']
+                tickSize = marketsInfo[pair]['tickSize']
+                tickSizeFormat = marketsInfo[pair]['tickSizeFormat']
+                stepSizeFormat = marketsInfo[pair]['stepSizeFormat']
 
                 try:
                     prices = client.get_ticker(symbol=pair)
@@ -359,12 +353,19 @@ def main():
     rebalanceIntervalSeconds = float(config['rebalance_interval_sec'])
     lastUpdate = time.time()
 
-    infos = {}
-    marketPairsLocal = config['pairs']
+    markets = config['pairs']
+    marketsInfo = {}
 
     if bot.initialized:
-        marketPairsBinance = bot.get_markets_info(client)
-        infos = bot.get_formats(marketPairsLocal, marketPairsBinance)
+        binanceMarkets = bot.get_markets_info(client)['symbols']
+        for market in  markets:
+            pair = market['market']
+            parameters = {}
+            for binanceMarket in binanceMarkets:
+                if binanceMarket['symbol'] == pair:
+                    parameters = bot.get_market_parameters(binanceMarket)
+            marketsInfo[pair] = parameters
+
         time.sleep(5)
 
         print(bot.timestamp, '   start cancel all orders')
@@ -389,12 +390,12 @@ def main():
                 rebalanceUpdate = time.time()
                 print(bot.timestamp, '   start sending special orders')
                 bot.specialOrders = True
-                bot.send_orders(config, client, infos)
+                bot.send_orders(config, client, marketsInfo)
                 bot.specialOrders = False
                 print(bot.timestamp, '   end sending special orders')
             else:
                 print(bot.timestamp, '   start sending orders')
-                bot.send_orders(config, client, infos)
+                bot.send_orders(config, client, marketsInfo)
                 print(bot.timestamp, '   end sending orders')
 
             for i in range(len(bot.lastTrades)):
