@@ -1,0 +1,9 @@
+LICENSE
+README.md
+setup.py
+shannonsdemon.py
+shannonsdemon.egg-info/PKG-INFO
+shannonsdemon.egg-info/SOURCES.txt
+shannonsdemon.egg-info/dependency_links.txt
+shannonsdemon.egg-info/requires.txt
+shannonsdemon.egg-info/top_level.txt
