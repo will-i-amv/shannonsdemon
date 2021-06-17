@@ -3,6 +3,34 @@ import time
 import json
 import os
 
+    
+class ConfigurationData():
+    def __init__(self):
+        self.circuitBreaker = True
+        self.config = {}
+        self.timeFormat = "%a, %d %b %Y %H:%M:%S"
+        self.timestamp = time.strftime(self.timeFormat, time.gmtime())
+
+
+    def read_config(self, filename):
+        try:
+            with open(filename) as f:
+                self.config = json.load(f)
+        except Exception as e:
+            print(self.timestamp,
+                '   not able to read config file, please fix and restart: ', e)
+            self.circuitBreaker = False
+
+
+    def write_config(self, filename):
+        try:
+            with open(filename, 'w') as f:
+                json.dump(self.config, f)
+        except Exception as e:
+            print(self.timestamp,
+                '    circuitBreaker set to false, cant write to file: ', e)
+            self.circuitBreaker = False
+
 
 class ShannonsDemon():
     def __init__(self):
@@ -84,17 +112,6 @@ class ShannonsDemon():
             formats[key] = format
 
         return formats
-
-
-    def write_config(self, config, filename):
-        try:
-            with open(filename, 'w') as f:
-                json.dump(config, f)
-        except Exception as e:
-            print(self.timestamp,
-                '    circuitBreaker set to false, ' +
-                'cant write to file: ', e)
-            self.circuitBreaker = False
 
 
     def cancel_all_orders(self, config, client):
@@ -333,42 +350,38 @@ class ShannonsDemon():
 
 def main():
     
+    filename = 'config.json'
+    publicKey = os.environ['PUBLIC_KEY']
+    privateKey = os.environ['PRIVATE_KEY']
+
     bot = ShannonsDemon()
+    configData = ConfigurationData()
     
     # Read config file
-    filename = 'config.json'
-    try:
-        with open(filename) as json_data_file:
-            config = json.load(json_data_file)
-    except Exception as e:
-        print(bot.timestamp,
-            '   not able to read config file, please fix and restart: ', e)
-        bot.initialized = False
+    configData.read_config(filename)
+
+    waitIntervalSeconds = float(configData.config['sleep_seconds_after_cancel_orders'])
+    quoteIntervalSeconds = float(configData.config['sleep_seconds_after_send_orders'])
+    rebalanceIntervalSeconds = float(configData.config['rebalance_interval_sec'])
 
     # Init binance client
     try:
-        publicKey = os.environ['PUBLIC_KEY']
-        privateKey = os.environ['PRIVATE_KEY']
         client = Client(publicKey, privateKey)
     except Exception as e:
-        print(bot.timestamp,
-            '   not able to init client, please fix and restart: ', e)
+        print(bot.timestamp, '   not able to init client, please fix and restart: ', e)
         bot.initialized = False
 
     infos = {}
-    waitIntervalSeconds = float(config['sleep_seconds_after_cancel_orders'])
-    quoteIntervalSeconds = float(config['sleep_seconds_after_send_orders'])
-    rebalanceIntervalSeconds = float(config['rebalance_interval_sec'])
     lastUpdate = time.time()
 
     if bot.initialized:
         print(bot.timestamp, '   start initializing')
-        infos = bot.get_markets_info(config, client)
+        infos = bot.get_markets_info(configData.config, client)
         time.sleep(5)
         print(bot.timestamp, '   end initializing')
 
         print(bot.timestamp, '   start cancel all orders')
-        bot.cancel_all_orders(config, client)
+        bot.cancel_all_orders(configData.config, client)
         print(bot.timestamp, '   end cancel all orders')
         
         rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
@@ -380,7 +393,7 @@ def main():
         else:
 
             print(bot.timestamp, '   start processing trades')
-            bot.process_all_trades(config, client, filename)
+            bot.process_all_trades(configData.config, client, filename)
             print(bot.timestamp, '   end processing trades')
 
             # Send orders special or normal
@@ -389,12 +402,12 @@ def main():
                 rebalanceUpdate = time.time()
                 print(bot.timestamp, '   start sending special orders')
                 bot.specialOrders = True
-                bot.send_orders(config, client, infos)
+                bot.send_orders(configData.config, client, infos)
                 bot.specialOrders = False
                 print(bot.timestamp, '   end sending special orders')
             else:
                 print(bot.timestamp, '   start sending orders')
-                bot.send_orders(config, client, infos)
+                bot.send_orders(configData.config, client, infos)
                 print(bot.timestamp, '   end sending orders')
 
             for i in range(len(bot.lastTrades)):
@@ -407,7 +420,7 @@ def main():
         # Cancel orders
         lastUpdate = time.time()
         print(bot.timestamp, '   start cancel all orders')
-        bot.cancel_all_orders(config, client)
+        bot.cancel_all_orders(configData.config, client)
         print(bot.timestamp, '   end cancel all orders')
 
         print(bot.timestamp, '   sleep for: ', waitIntervalSeconds, ' seconds')
