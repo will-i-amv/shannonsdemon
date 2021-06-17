@@ -356,9 +356,9 @@ def main():
         bot.initialized = False
 
     infos = {}
-    wait_interval_sec = float(config['sleep_seconds_after_cancel_orders'])
-    quote_interval_sec = float(config['sleep_seconds_after_send_orders'])
-    rebalance_interval_sec = float(config['rebalance_interval_sec'])
+    waitIntervalSeconds = float(config['sleep_seconds_after_cancel_orders'])
+    quoteIntervalSeconds = float(config['sleep_seconds_after_send_orders'])
+    rebalanceIntervalSeconds = float(config['rebalance_interval_sec'])
     lastUpdate = time.time()
 
     if bot.initialized:
@@ -371,7 +371,7 @@ def main():
         bot.cancel_all_orders(config, client)
         print(bot.timestamp, '   end cancel all orders')
         
-        rebalanceUpdate = time.time() # if start with rebalance:   - rebalance_interval_sec -1.0
+        rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
 
     while True and bot.initialized:
 
@@ -385,7 +385,7 @@ def main():
 
             # Send orders special or normal
             lastUpdate = time.time()
-            if time.time() > rebalanceUpdate + rebalance_interval_sec and rebalance_interval_sec > 0:
+            if time.time() > rebalanceUpdate + rebalanceIntervalSeconds and rebalanceIntervalSeconds > 0:
                 rebalanceUpdate = time.time()
                 print(bot.timestamp, '   start sending special orders')
                 bot.specialOrders = True
@@ -401,8 +401,8 @@ def main():
                 if bot.lastTrades[i] is not None:
                     print(bot.timestamp, '   last 3 trades: ', bot.lastTrades[i])
 
-        print(bot.timestamp, '   sleep for: ', quote_interval_sec, ' seconds')
-        time.sleep(quote_interval_sec)
+        print(bot.timestamp, '   sleep for: ', quoteIntervalSeconds, ' seconds')
+        time.sleep(quoteIntervalSeconds)
 
         # Cancel orders
         lastUpdate = time.time()
@@ -410,8 +410,8 @@ def main():
         bot.cancel_all_orders(config, client)
         print(bot.timestamp, '   end cancel all orders')
 
-        print(bot.timestamp, '   sleep for: ', wait_interval_sec, ' seconds')
-        time.sleep(wait_interval_sec)
+        print(bot.timestamp, '   sleep for: ', waitIntervalSeconds, ' seconds')
+        time.sleep(waitIntervalSeconds)
 
 
 if __name__ == '__main__':
