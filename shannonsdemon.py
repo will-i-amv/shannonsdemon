@@ -16,24 +16,26 @@ class ShannonsDemon():
         self.lastTradesCounter = -1
         self.lastTrades = [None] * 3
 
-
-    def get_markets_info(self, config, client):
+    def get_markets_info(self, client):
         try:
-            info = client.get_exchange_info()
+            print(self.timestamp, '   start initializing')
+            marketPairsBinance = client.get_exchange_info()
+            print(self.timestamp, '   end initializing')
         except Exception as e:
             print(self.timestamp,
                 '    circuitBreaker set to false, ' +
-                'cant get market info from exchange: ', e)
+                'cant get market marketPairsBinance from exchange: ', e)
             self.circuitBreaker = False
+        return marketPairsBinance
 
+
+    def get_formats(self, marketPairsLocal, marketPairsBinance):
         formats = {}
-        for i in range(len(config['pairs'])):
-            key = config['pairs'][i]['market']
+        for i in range(len(marketPairsLocal)):
+            key = marketPairsLocal[i]['market']
             format = {}
-
-            for market in info['symbols']:
+            for market in marketPairsBinance['symbols']:
                 if market['symbol'] == key:
-
                     for filter in market['filters']:
                         if filter['filterType'] == 'LOT_SIZE':
                             stepSize = float(filter['stepSize'])
@@ -75,14 +77,11 @@ class ShannonsDemon():
                                 tickSizesFormat = '{:.7f}'
                             elif tickSize == 0.00000001:
                                 tickSizesFormat = '{:.8f}'
-
             format['tickSizeFormat'] = tickSizesFormat
             format['stepSizeFormat'] = stepSizesFormat
             format['tickSize'] = tickSize
             format['stepSize'] = stepSize
-
             formats[key] = format
-
         return formats
 
 
@@ -355,17 +354,18 @@ def main():
             '   not able to init client, please fix and restart: ', e)
         bot.initialized = False
 
-    infos = {}
     waitIntervalSeconds = float(config['sleep_seconds_after_cancel_orders'])
     quoteIntervalSeconds = float(config['sleep_seconds_after_send_orders'])
     rebalanceIntervalSeconds = float(config['rebalance_interval_sec'])
     lastUpdate = time.time()
 
+    infos = {}
+    marketPairsLocal = config['pairs']
+
     if bot.initialized:
-        print(bot.timestamp, '   start initializing')
-        infos = bot.get_markets_info(config, client)
+        marketPairsBinance = bot.get_markets_info(client)
+        infos = bot.get_formats(marketPairsLocal, marketPairsBinance)
         time.sleep(5)
-        print(bot.timestamp, '   end initializing')
 
         print(bot.timestamp, '   start cancel all orders')
         bot.cancel_all_orders(config, client)
