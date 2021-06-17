@@ -3,14 +3,27 @@ import time
 import json
 import os
 
-    
-class ConfigurationData():
-    def __init__(self):
+
+class BinanceClient(Client):
+    def __init__(self, publicKey, privateKey):
         self.circuitBreaker = True
-        self.config = {}
         self.timeFormat = "%a, %d %b %Y %H:%M:%S"
         self.timestamp = time.strftime(self.timeFormat, time.gmtime())
 
+        # Init BinanceClient using its superclass
+        try:
+            super(BinanceClient, self).__init__(publicKey, privateKey)
+        except Exception as e:
+            print(self.timestamp, '   not able to init client, please fix and restart: ', e)
+            self.circuitBreaker = False
+
+        
+class ConfigurationData():
+    def __init__(self):
+        self.circuitBreaker = True
+        self.timeFormat = "%a, %d %b %Y %H:%M:%S"
+        self.timestamp = time.strftime(self.timeFormat, time.gmtime())
+        self.config = {}
 
     def read_config(self, filename):
         try:
@@ -58,10 +71,8 @@ class ShannonsDemon():
         for i in range(len(config['pairs'])):
             key = config['pairs'][i]['market']
             format = {}
-
             for market in info['symbols']:
                 if market['symbol'] == key:
-
                     for filter in market['filters']:
                         if filter['filterType'] == 'LOT_SIZE':
                             stepSize = float(filter['stepSize'])
@@ -353,23 +364,16 @@ def main():
     filename = 'config.json'
     publicKey = os.environ['PUBLIC_KEY']
     privateKey = os.environ['PRIVATE_KEY']
-
+    
+    client = BinanceClient(publicKey, privateKey)
     bot = ShannonsDemon()
     configData = ConfigurationData()
     
     # Read config file
     configData.read_config(filename)
-
     waitIntervalSeconds = float(configData.config['sleep_seconds_after_cancel_orders'])
     quoteIntervalSeconds = float(configData.config['sleep_seconds_after_send_orders'])
     rebalanceIntervalSeconds = float(configData.config['rebalance_interval_sec'])
-
-    # Init binance client
-    try:
-        client = Client(publicKey, privateKey)
-    except Exception as e:
-        print(bot.timestamp, '   not able to init client, please fix and restart: ', e)
-        bot.initialized = False
 
     infos = {}
     lastUpdate = time.time()
