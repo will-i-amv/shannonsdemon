@@ -19,14 +19,14 @@ class ShannonsDemon():
     def get_markets_info(self, client):
         try:
             print(self.timestamp, '   start initializing')
-            marketPairsBinance = client.get_exchange_info()
+            marketPairs = client.get_exchange_info()
             print(self.timestamp, '   end initializing')
         except Exception as e:
             print(self.timestamp,
                 '    circuitBreaker set to false, ' +
                 'cant get market marketPairsBinance from exchange: ', e)
             self.circuitBreaker = False
-        return marketPairsBinance
+        return marketPairs
 
 
     def get_market_parameters(self, market):
@@ -85,29 +85,24 @@ class ShannonsDemon():
                 json.dump(config, f)
         except Exception as e:
             print(self.timestamp,
-                '    circuitBreaker set to false, ' +
-                'cant write to file: ', e)
+                '    circuitBreaker set to false, cant write to file: ', e)
             self.circuitBreaker = False
 
 
-    def cancel_all_orders(self, config, client):
+    def cancel_all_orders(self, client, pair):
         self.circuitBreaker = True
         try:
-            for i in range(len(config['pairs'])):
-                key = config['pairs'][i]['market']
-                currentOrders = client.get_open_orders(symbol=key)
-                if len(currentOrders) > 0:
-                    for j, val in enumerate(currentOrders):
-                        if currentOrders[j]['clientOrderId'][0:3] == 'SHN':
-                            client.cancel_order(symbol=key,
-                                                orderId=currentOrders[j]['orderId'])
-                        time.sleep(1.05)
-
+            print(self.timestamp, '   start cancel all orders')
+            currentOrders = client.get_open_orders(symbol=pair)
+            for order in currentOrders:
+                if order['clientOrderId'][0:3] == 'SHN':
+                    client.cancel_order(symbol=pair, orderId=order['orderId'])
+                time.sleep(1.05)
+            print(self.timestamp, '   end cancel all orders')
         except Exception as e:
-            print(self.timestamp,
-                '   circuitBreaker set to false, ' +
-                'cannot cancel all orders: ', e)
             self.circuitBreaker = False
+            print(self.timestamp,
+                '   circuitBreaker set to false, cannot cancel all orders: ', e)
             time.sleep(5.0)
 
 
@@ -358,19 +353,15 @@ def main():
 
     if bot.initialized:
         binanceMarkets = bot.get_markets_info(client)['symbols']
-        for market in  markets:
+        for market in markets:
             pair = market['market']
             parameters = {}
             for binanceMarket in binanceMarkets:
                 if binanceMarket['symbol'] == pair:
                     parameters = bot.get_market_parameters(binanceMarket)
             marketsInfo[pair] = parameters
-
-        time.sleep(5)
-
-        print(bot.timestamp, '   start cancel all orders')
-        bot.cancel_all_orders(config, client)
-        print(bot.timestamp, '   end cancel all orders')
+            time.sleep(5)
+            bot.cancel_all_orders(client, pair)
         
         rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
 
@@ -408,7 +399,7 @@ def main():
         # Cancel orders
         lastUpdate = time.time()
         print(bot.timestamp, '   start cancel all orders')
-        bot.cancel_all_orders(config, client)
+        bot.cancel_all_orders(client, pair)
         print(bot.timestamp, '   end cancel all orders')
 
         print(bot.timestamp, '   sleep for: ', waitIntervalSeconds, ' seconds')
