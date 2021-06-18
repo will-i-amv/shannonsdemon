@@ -20,10 +20,7 @@ class BinanceClient(Client):
 
     def get_exchange_info(self):
         try:
-            print(self.timestamp, '   start initializing')
-            #marketPairs = self.get_exchange_info()
             marketPairs = super(BinanceClient, self).get_exchange_info()
-            print(self.timestamp, '   end initializing')
         except Exception as e:
             print(self.timestamp,
                 '    circuitBreaker set to false, ' +
@@ -35,18 +32,35 @@ class BinanceClient(Client):
     def cancel_all_orders(self, pair):
         self.circuitBreaker = True
         try:
-            print(self.timestamp, '   start cancel all orders')
             currentOrders = super(BinanceClient, self).get_open_orders(symbol=pair)
             for order in currentOrders:
                 if order['clientOrderId'][0:3] == 'SHN':
                     super(BinanceClient, self).cancel_order(symbol=pair, orderId=order['orderId'])
                 time.sleep(1.05)
-            print(self.timestamp, '   end cancel all orders')
         except Exception as e:
             self.circuitBreaker = False
             print(self.timestamp,
                 '   circuitBreaker set to false, cannot cancel all orders: ', e)
             time.sleep(5.0)
+
+
+    def get_my_trades(self, pair, lastId):
+        lastTrades = []
+        self.circuitBreaker = True
+        try:
+            tradesTemp = super(BinanceClient, self).get_my_trades(symbol=pair, limit=1000, fromId=lastId + 1)
+            lastTrades = sorted(tradesTemp, key=lambda k: k['id'])
+        except Exception as e:
+            print(self.timestamp,
+            '   self.circuitBreaker set to false, not able to get all trades ', e)
+            self.circuitBreaker = False
+
+        return lastTrades 
+
+
+    def get_order(self, pair, id):
+        order = super(BinanceClient, self).get_order(symbol=pair, orderId=id)
+        return order
 
 
 class ConfigurationData():
@@ -63,6 +77,26 @@ class ConfigurationData():
         except Exception as e:
             print(self.timestamp,
                 '   not able to read config file, please fix and restart: ', e)
+            self.circuitBreaker = False
+
+
+    def update_config(self, trade, i):
+        
+        # process trades      
+        try:
+
+            if trade['isBuyer']:
+                self.config['pairs'][i]['base_asset_qty'] += float(trade['qty'])
+                self.config['pairs'][i]['quote_asset_qty'] -= float(trade['quoteQty'])
+            else:
+                self.config['pairs'][i]['base_asset_qty'] -= float(trade['qty'])
+                self.config['pairs'][i]['quote_asset_qty'] += float(trade['quoteQty'])
+        
+            self.config['pairs'][i]['fromId'] = trade['id']
+
+        except Exception as e:
+            print(self.timestamp,
+                '   self.circuitBreaker set to false, not able to updte config ', e)
             self.circuitBreaker = False
 
 
@@ -139,78 +173,44 @@ class ShannonsDemon():
         return parameters
 
 
-    def process_all_trades(self, config, client, filename):
-        
-        self.circuitBreaker = True
-
+    def print_new_trade(self, trade, pair):
         try:
-            for i in range(len(config['pairs'])):
-
-                pair = config['pairs'][i]['market']
-                lastId = config['pairs'][i]['fromId']
-                tradesTemp = client.get_my_trades(symbol=pair,
-                                                limit=1000,
-                                                fromId=lastId + 1)
-                trades = []
-                trades = sorted(tradesTemp, key=lambda k: k['id'])
-
-                # process trades
-                for j in range(len(trades)):
-
-                    try:
-
-                        order = client.get_order(symbol=pair,
-                                                orderId=trades[j]['orderId'])
-
-                        if order['clientOrderId'][0:3] == 'SHN':
-
-                            if trades[j]['isBuyer']:
-                                operationType = 'buy'
-                                config['pairs'][i]['base_asset_qty'] += float(trades[j]['qty'])
-                                config['pairs'][i]['quote_asset_qty'] -= float(trades[j]['quoteQty'])
-                            else:
-                                operationType = 'sell'
-                                config['pairs'][i]['base_asset_qty'] -= float(trades[j]['qty'])
-                                config['pairs'][i]['quote_asset_qty'] += float(trades[j]['quoteQty'])
-
-                            print(self.timestamp,
-                                '   new trade ({}):'.format(operationType), pair,
-                                ' qty: ', trades[j]['qty'],
-                                ' price: ', trades[j]['price'])
-                            timestamp2 = str(time.ctime((float(trades[j]['time']) / 1000.0)))
-                            operation = ' {}:'.format(operationType) + '{0: <10}'.format(pair)
-                            quantity = ' qty: ' + '{0: <10}'.format(trades[j]['qty'])
-                            price = ' price: ' + '{0: <10}'.format(trades[j]['price'])
-                            self.lastTrades[self.lastTradesCounter] = ' ' + timestamp2 + operation + quantity + price
-
-                            config['pairs'][i]['fromId'] = trades[j]['id']
-                            self.write_config(config, filename)
-                            self.lastTradesCounter += 1
-                            if self.lastTradesCounter >= 3:
-                                self.lastTradesCounter = 0
-
-                    except Exception as e:
-                        print(e)
-
-                time.sleep(1.1)
-
+            
+            operationType = 'buy' if trade['isBuyer'] else 'sell'
+            
+            print(self.timestamp,
+                '   new trade ({}):'.format(operationType), pair,
+                ' quantity: ', trade['qty'],
+                ' price: ', trade['price'])
+            
+            timestamp2 = str(time.ctime((float(trade['time']) / 1000.0)))
+            operation = ' {}:'.format(operationType) + '{0: <10}'.format(pair)
+            quantity = ' qty: ' + '{0: <10}'.format(trade['qty'])
+            price = ' price: ' + '{0: <10}'.format(trade['price'])
+            
+            self.lastTrades[self.lastTradesCounter] = ' ' + timestamp2 + operation + quantity + price
+            self.lastTradesCounter += 1
+            if self.lastTradesCounter >= 3:
+                self.lastTradesCounter = 0
+            
+            time.sleep(1.1)
+            
         except Exception as e:
             print(self.timestamp,
-                '   self.circuitBreaker set to false, ' +
-                'not able to process all trades ', e)
+                '   self.circuitBreaker set to false, not able to print trade ', e)
             self.circuitBreaker = False
 
 
-    def send_orders(self, config, client, infos):
+    def send_orders(self, config, client, marketsInfo):
         try:
             for i in range(len(config['pairs'])):
 
                 self.circuitBreaker = True
                 pair = config['pairs'][i]['market']
                 coin = float(config['pairs'][i]['base_asset_qty'])
-                tickSize = infos[pair]['tickSize']
-                tickSizeFormat = infos[pair]['tickSizeFormat']
-                stepSizeFormat = infos[pair]['stepSizeFormat']
+                tickSize = marketsInfo[pair]['tickSize']
+                tickSizeFormat = marketsInfo[pair]['tickSizeFormat']
+                stepSizeFormat = marketsInfo[pair]['stepSizeFormat']
 
                 try:
                     prices = client.get_ticker(symbol=pair)
@@ -271,8 +271,7 @@ class ShannonsDemon():
                 if float(midPrice) < 0.99 * mybidPrice or float(midPrice) > 1.01 * myaskPrice:
                     self.circuitBreaker = False
                     print(self.timestamp,
-                        '   please inspect quantities config file ' +
-                        'as bot hits market')
+                        '   please inspect quantities config file as bot hits market')
                     if self.firstRun:
                         self.initialized = False
                 else:
@@ -358,7 +357,7 @@ def main():
     publicKey = os.environ['PUBLIC_KEY']
     privateKey = os.environ['PRIVATE_KEY']
     
-    client = BinanceClient(publicKey, privateKey)
+    apiClient = BinanceClient(publicKey, privateKey)
     bot = ShannonsDemon()
     configData = ConfigurationData()
     
@@ -372,7 +371,12 @@ def main():
     marketsInfo = {}
     
     if bot.initialized:
-        binanceMarkets = client.get_exchange_info()['symbols']
+        
+        print(bot.timestamp, '   start initializing')
+        binanceMarkets = apiClient.get_exchange_info()['symbols']
+        print(bot.timestamp, '   end initializing')
+        
+        print(bot.timestamp, '   start cancel all orders')
         for market in markets:
             pair = market['market']
 
@@ -381,11 +385,11 @@ def main():
                 if binanceMarket['symbol'] == pair:
                     parameters = bot.get_market_parameters(binanceMarket)
             marketsInfo[pair] = parameters
+        
             time.sleep(5)
-
-            client.cancel_all_orders(pair)
-
-        infos = marketsInfo
+            apiClient.cancel_all_orders(pair)       
+        print(bot.timestamp, '   end cancel all orders')
+        
         rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
 
     while True and bot.initialized:
@@ -393,10 +397,24 @@ def main():
         if not bot.circuitBreaker:
             print(bot.timestamp, '   circuitBreaker false, do not send orders')
         else:
-
+            
             print(bot.timestamp, '   start processing trades')
-            bot.process_all_trades(configData.config, client, filename)
+            for i, market in enumerate(markets):
+                pair = market['market']
+                lastId = market['fromId']
+
+                lastTrades = apiClient.get_my_trades(pair, lastId)
+
+                for trade in lastTrades:
+                    orderId = trade['orderId']
+                    order = apiClient.get_order(pair, orderId)
+                    if order['clientOrderId'][0:3] == 'SHN':
+                        configData.update_config(trade, i)
+                        bot.print_new_trade(trade, pair)
+            
+            configData.write_config(filename)           
             print(bot.timestamp, '   end processing trades')
+
 
             # Send orders special or normal
             lastUpdate = time.time()
@@ -404,12 +422,12 @@ def main():
                 rebalanceUpdate = time.time()
                 print(bot.timestamp, '   start sending special orders')
                 bot.specialOrders = True
-                bot.send_orders(configData.config, client, infos)
+                bot.send_orders(configData.config, apiClient, marketsInfo)
                 bot.specialOrders = False
                 print(bot.timestamp, '   end sending special orders')
             else:
                 print(bot.timestamp, '   start sending orders')
-                bot.send_orders(configData.config, client, infos)
+                bot.send_orders(configData.config, apiClient, marketsInfo)
                 print(bot.timestamp, '   end sending orders')
 
             for i in range(len(bot.lastTrades)):
@@ -422,7 +440,9 @@ def main():
         # Cancel orders
         lastUpdate = time.time()
         print(bot.timestamp, '   start cancel all orders')
-        bot.cancel_all_orders(configData.config, client)
+        for market in markets:
+            apiClient.cancel_all_orders(pair)
+            #apiClient.cancel_all_orders(configData.config, apiClient)
         print(bot.timestamp, '   end cancel all orders')
 
         print(bot.timestamp, '   sleep for: ', waitIntervalSeconds, ' seconds')
