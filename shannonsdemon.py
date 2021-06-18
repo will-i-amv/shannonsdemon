@@ -17,7 +17,38 @@ class BinanceClient(Client):
             print(self.timestamp, '   not able to init client, please fix and restart: ', e)
             self.circuitBreaker = False
 
-        
+
+    def get_exchange_info(self):
+        try:
+            print(self.timestamp, '   start initializing')
+            #marketPairs = self.get_exchange_info()
+            marketPairs = super(BinanceClient, self).get_exchange_info()
+            print(self.timestamp, '   end initializing')
+        except Exception as e:
+            print(self.timestamp,
+                '    circuitBreaker set to false, ' +
+                'cant get market info from exchange: ', e)
+            self.circuitBreaker = False
+        return marketPairs
+
+
+    def cancel_all_orders(self, pair):
+        self.circuitBreaker = True
+        try:
+            print(self.timestamp, '   start cancel all orders')
+            currentOrders = super(BinanceClient, self).get_open_orders(symbol=pair)
+            for order in currentOrders:
+                if order['clientOrderId'][0:3] == 'SHN':
+                    super(BinanceClient, self).cancel_order(symbol=pair, orderId=order['orderId'])
+                time.sleep(1.05)
+            print(self.timestamp, '   end cancel all orders')
+        except Exception as e:
+            self.circuitBreaker = False
+            print(self.timestamp,
+                '   circuitBreaker set to false, cannot cancel all orders: ', e)
+            time.sleep(5.0)
+
+
 class ConfigurationData():
     def __init__(self):
         self.circuitBreaker = True
@@ -56,94 +87,56 @@ class ShannonsDemon():
         self.timestamp = time.strftime(self.timeFormat, time.gmtime())
         self.lastTradesCounter = -1
         self.lastTrades = [None] * 3
+    
 
-
-    def get_markets_info(self, config, client):
-        try:
-            info = client.get_exchange_info()
-        except Exception as e:
-            print(self.timestamp,
-                '    circuitBreaker set to false, ' +
-                'cant get market info from exchange: ', e)
-            self.circuitBreaker = False
-
-        formats = {}
-        for i in range(len(config['pairs'])):
-            key = config['pairs'][i]['market']
-            format = {}
-            for market in info['symbols']:
-                if market['symbol'] == key:
-                    for filter in market['filters']:
-                        if filter['filterType'] == 'LOT_SIZE':
-                            stepSize = float(filter['stepSize'])
-                            if stepSize >= 1.0:
-                                stepSizesFormat = '{:.0f}'
-                            elif stepSize == 0.1:
-                                stepSizesFormat = '{:.1f}'
-                            elif stepSize == 0.01:
-                                stepSizesFormat = '{:.2f}'
-                            elif stepSize == 0.001:
-                                stepSizesFormat = '{:.3f}'
-                            elif stepSize == 0.0001:
-                                stepSizesFormat = '{:.4f}'
-                            elif stepSize == 0.00001:
-                                stepSizesFormat = '{:.5f}'
-                            elif stepSize == 0.000001:
-                                stepSizesFormat = '{:.6f}'
-                            elif stepSize == 0.0000001:
-                                stepSizesFormat = '{:.7f}'
-                            elif stepSize == 0.00000001:
-                                stepSizesFormat = '{:.8f}'
-                        if filter['filterType'] == 'PRICE_FILTER':
-                            tickSize = float(filter['tickSize'])
-                            if tickSize >= 1.0:
-                                tickSizesFormat = '{:.0f}'
-                            elif tickSize == 0.1:
-                                tickSizesFormat = '{:.1f}'
-                            elif tickSize == 0.01:
-                                tickSizesFormat = '{:.2f}'
-                            elif tickSize == 0.001:
-                                tickSizesFormat = '{:.3f}'
-                            elif tickSize == 0.0001:
-                                tickSizesFormat = '{:.4f}'
-                            elif tickSize == 0.00001:
-                                tickSizesFormat = '{:.5f}'
-                            elif tickSize == 0.000001:
-                                tickSizesFormat = '{:.6f}'
-                            elif tickSize == 0.0000001:
-                                tickSizesFormat = '{:.7f}'
-                            elif tickSize == 0.00000001:
-                                tickSizesFormat = '{:.8f}'
-
-            format['tickSizeFormat'] = tickSizesFormat
-            format['stepSizeFormat'] = stepSizesFormat
-            format['tickSize'] = tickSize
-            format['stepSize'] = stepSize
-
-            formats[key] = format
-
-        return formats
-
-
-    def cancel_all_orders(self, config, client):
-        self.circuitBreaker = True
-        try:
-            for i in range(len(config['pairs'])):
-                key = config['pairs'][i]['market']
-                currentOrders = client.get_open_orders(symbol=key)
-                if len(currentOrders) > 0:
-                    for j, val in enumerate(currentOrders):
-                        if currentOrders[j]['clientOrderId'][0:3] == 'SHN':
-                            client.cancel_order(symbol=key,
-                                                orderId=currentOrders[j]['orderId'])
-                        time.sleep(1.05)
-
-        except Exception as e:
-            print(self.timestamp,
-                '   circuitBreaker set to false, ' +
-                'cannot cancel all orders: ', e)
-            self.circuitBreaker = False
-            time.sleep(5.0)
+    def get_market_parameters(self, market):
+        parameters = {}
+        for marketFilter in market['filters']:
+            if marketFilter['filterType'] == 'LOT_SIZE':
+                stepSize = float(marketFilter['stepSize'])
+                if stepSize >= 1.0:
+                    stepSizesFormat = '{:.0f}'
+                elif stepSize == 0.1:
+                    stepSizesFormat = '{:.1f}'
+                elif stepSize == 0.01:
+                    stepSizesFormat = '{:.2f}'
+                elif stepSize == 0.001:
+                    stepSizesFormat = '{:.3f}'
+                elif stepSize == 0.0001:
+                    stepSizesFormat = '{:.4f}'
+                elif stepSize == 0.00001:
+                    stepSizesFormat = '{:.5f}'
+                elif stepSize == 0.000001:
+                    stepSizesFormat = '{:.6f}'
+                elif stepSize == 0.0000001:
+                    stepSizesFormat = '{:.7f}'
+                elif stepSize == 0.00000001:
+                    stepSizesFormat = '{:.8f}'
+            if marketFilter['filterType'] == 'PRICE_FILTER':
+                tickSize = float(marketFilter['tickSize'])
+                if tickSize >= 1.0:
+                    tickSizesFormat = '{:.0f}'
+                elif tickSize == 0.1:
+                    tickSizesFormat = '{:.1f}'
+                elif tickSize == 0.01:
+                    tickSizesFormat = '{:.2f}'
+                elif tickSize == 0.001:
+                    tickSizesFormat = '{:.3f}'
+                elif tickSize == 0.0001:
+                    tickSizesFormat = '{:.4f}'
+                elif tickSize == 0.00001:
+                    tickSizesFormat = '{:.5f}'
+                elif tickSize == 0.000001:
+                    tickSizesFormat = '{:.6f}'
+                elif tickSize == 0.0000001:
+                    tickSizesFormat = '{:.7f}'
+                elif tickSize == 0.00000001:
+                    tickSizesFormat = '{:.8f}'
+        parameters['tickSizeFormat'] = tickSizesFormat
+        parameters['stepSizeFormat'] = stepSizesFormat
+        parameters['tickSize'] = tickSize
+        parameters['stepSize'] = stepSize
+        return parameters
 
 
     def process_all_trades(self, config, client, filename):
@@ -375,19 +368,24 @@ def main():
     quoteIntervalSeconds = float(configData.config['sleep_seconds_after_send_orders'])
     rebalanceIntervalSeconds = float(configData.config['rebalance_interval_sec'])
 
-    infos = {}
-    lastUpdate = time.time()
-
+    markets = configData.config['pairs']
+    marketsInfo = {}
+    
     if bot.initialized:
-        print(bot.timestamp, '   start initializing')
-        infos = bot.get_markets_info(configData.config, client)
-        time.sleep(5)
-        print(bot.timestamp, '   end initializing')
+        binanceMarkets = client.get_exchange_info()['symbols']
+        for market in markets:
+            pair = market['market']
 
-        print(bot.timestamp, '   start cancel all orders')
-        bot.cancel_all_orders(configData.config, client)
-        print(bot.timestamp, '   end cancel all orders')
-        
+            parameters = {}
+            for binanceMarket in binanceMarkets:
+                if binanceMarket['symbol'] == pair:
+                    parameters = bot.get_market_parameters(binanceMarket)
+            marketsInfo[pair] = parameters
+            time.sleep(5)
+
+            client.cancel_all_orders(pair)
+
+        infos = marketsInfo
         rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
 
     while True and bot.initialized:
