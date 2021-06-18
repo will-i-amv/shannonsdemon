@@ -4,99 +4,95 @@ import json
 import os
 
 
+def print_timestamped_message(message):
+    timeFormat = "%a, %d %b %Y %H:%M:%S"
+    timestamp = time.strftime(timeFormat, time.gmtime())
+    print(timestamp + '    ' + message)
+
+
 class BinanceClient(Client):
     def __init__(self, publicKey, privateKey):
         self.circuitBreaker = True
-        self.timeFormat = "%a, %d %b %Y %H:%M:%S"
-        self.timestamp = time.strftime(self.timeFormat, time.gmtime())
-
-        # Init BinanceClient using its superclass
         try:
             super(BinanceClient, self).__init__(publicKey, privateKey)
-        except Exception as e:
-            print(self.timestamp, '   not able to init client, please fix and restart: ', e)
+        except:
+            print_timestamped_message('Not able to init client, please fix and restart: ' + e)
             self.circuitBreaker = False
 
 
     def get_exchange_info(self):
         try:
+            self.circuitBreaker = True
             marketPairs = super(BinanceClient, self).get_exchange_info()
         except Exception as e:
-            print(self.timestamp,
-                '    circuitBreaker set to false, ' +
-                'cant get market info from exchange: ', e)
+            print_timestamped_message('Cannot get market info from exchange: ' + e)
             self.circuitBreaker = False
         return marketPairs
 
 
     def cancel_all_orders(self, pair):
-        self.circuitBreaker = True
         try:
+            self.circuitBreaker = True
             currentOrders = super(BinanceClient, self).get_open_orders(symbol=pair)
             for order in currentOrders:
                 if order['clientOrderId'][0:3] == 'SHN':
                     super(BinanceClient, self).cancel_order(symbol=pair, orderId=order['orderId'])
                 time.sleep(1.05)
         except Exception as e:
+            print_timestamped_message('Cannot cancel all orders: ' + e)
             self.circuitBreaker = False
-            print(self.timestamp,
-                '   circuitBreaker set to false, cannot cancel all orders: ', e)
-            time.sleep(5.0)
 
 
     def get_my_trades(self, pair, lastId):
         lastTrades = []
-        self.circuitBreaker = True
         try:
+            self.circuitBreaker = True
             tradesTemp = super(BinanceClient, self).get_my_trades(symbol=pair, limit=1000, fromId=lastId + 1)
             lastTrades = sorted(tradesTemp, key=lambda k: k['id'])
         except Exception as e:
-            print(self.timestamp,
-            '   self.circuitBreaker set to false, not able to get all trades ', e)
+            print_timestamped_message('Not able to get all trades: ' + e)
             self.circuitBreaker = False
-
         return lastTrades 
 
 
     def get_order(self, pair, id):
-        order = super(BinanceClient, self).get_order(symbol=pair, orderId=id)
+        try:
+            self.circuitBreaker = True
+            order = super(BinanceClient, self).get_order(symbol=pair, orderId=id)
+        except Exception as e:
+            print_timestamped_message('Not able to get order: ' + e)
+            self.circuitBreaker = False
         return order
 
 
 class ConfigurationData():
     def __init__(self):
         self.circuitBreaker = True
-        self.timeFormat = "%a, %d %b %Y %H:%M:%S"
-        self.timestamp = time.strftime(self.timeFormat, time.gmtime())
         self.config = {}
+
 
     def read_config(self, filename):
         try:
+            self.circuitBreaker = True
             with open(filename) as f:
                 self.config = json.load(f)
         except Exception as e:
-            print(self.timestamp,
-                '   not able to read config file, please fix and restart: ', e)
+            print_timestamped_message('Not able to read config file, please fix and restart: ', e)
             self.circuitBreaker = False
 
 
     def update_config(self, trade, i):
-        
-        # process trades      
         try:
-
             if trade['isBuyer']:
                 self.config['pairs'][i]['base_asset_qty'] += float(trade['qty'])
                 self.config['pairs'][i]['quote_asset_qty'] -= float(trade['quoteQty'])
             else:
                 self.config['pairs'][i]['base_asset_qty'] -= float(trade['qty'])
-                self.config['pairs'][i]['quote_asset_qty'] += float(trade['quoteQty'])
-        
+                self.config['pairs'][i]['quote_asset_qty'] += float(trade['quoteQty'])       
             self.config['pairs'][i]['fromId'] = trade['id']
 
         except Exception as e:
-            print(self.timestamp,
-                '   self.circuitBreaker set to false, not able to updte config ', e)
+            print_timestamped_message('Not able to updte config ', e)
             self.circuitBreaker = False
 
 
@@ -105,8 +101,7 @@ class ConfigurationData():
             with open(filename, 'w') as f:
                 json.dump(self.config, f)
         except Exception as e:
-            print(self.timestamp,
-                '    circuitBreaker set to false, cant write to file: ', e)
+            print_timestamped_message('Cannot write to file: ', e)
             self.circuitBreaker = False
 
 
@@ -116,9 +111,7 @@ class ShannonsDemon():
         self.firstRun = True
         self.circuitBreaker = True
         self.specialOrders = True
-        self.timeFormat = "%a, %d %b %Y %H:%M:%S"
         self.timeConst = 1579349682.0
-        self.timestamp = time.strftime(self.timeFormat, time.gmtime())
         self.lastTradesCounter = -1
         self.lastTrades = [None] * 3
     
@@ -178,7 +171,7 @@ class ShannonsDemon():
             
             operationType = 'buy' if trade['isBuyer'] else 'sell'
             
-            print(self.timestamp,
+            print_timestamped_message(
                 '   new trade ({}):'.format(operationType), pair,
                 ' quantity: ', trade['qty'],
                 ' price: ', trade['price'])
@@ -196,8 +189,7 @@ class ShannonsDemon():
             time.sleep(1.1)
             
         except Exception as e:
-            print(self.timestamp,
-                '   self.circuitBreaker set to false, not able to print trade ', e)
+            print_timestamped_message('Not able to print trade ' + e)
             self.circuitBreaker = False
 
 
@@ -217,8 +209,7 @@ class ShannonsDemon():
                     self.circuitBreaker = True
                 except Exception as e:
                     self.circuitBreaker = False
-                    print(self.timestamp,
-                        '   not able to get price ', e)
+                    print_timestamped_message('Not able to get price ' + e)
 
                 bidPrice = float(prices['bidPrice'])
                 askPrice = float(prices['askPrice'])
@@ -270,8 +261,7 @@ class ShannonsDemon():
 
                 if float(midPrice) < 0.99 * mybidPrice or float(midPrice) > 1.01 * myaskPrice:
                     self.circuitBreaker = False
-                    print(self.timestamp,
-                        '   please inspect quantities config file as bot hits market')
+                    print_timestamped_message('Please inspect quantities config file as bot hits market')
                     if self.firstRun:
                         self.initialized = False
                 else:
@@ -289,13 +279,12 @@ class ShannonsDemon():
                     min(mybidPrice, bidPrice + tickSize))
                 orderBidQuantity = myBidQuantity
                 if config['state'] == 'TRADE' and self.circuitBreaker:
-                    print(self.timestamp,
-                        '   send buy  order: ',
-                        '{0: <9}'.format(pair),
-                        ' p: ', '{0: <9}'.format(str(orderBidPrice)),
-                        ' q: ', '{0: <8}'.format(str(myBidQuantity)),
-                        ' l: ', '{0: <9}'.format(str(midPrice)),
-                        ' b: ', awayFromBuy)
+                    print_timestamped_message(
+                        'Send buy  order: {0: <9}'.format(pair) + \
+                        ' p: {0: <9}'.format(str(orderBidPrice)) + \
+                        ' q: {0: <8}'.format(str(myBidQuantity)) + \
+                        ' l: {0: <9}'.format(str(midPrice)) + \
+                        ' b: {}'.format(awayFromBuy))
 
                     myOrderId = 'SHN-B-' + pair + '-' + str(int(time.time() - self.timeConst))
                     try:
@@ -304,28 +293,26 @@ class ShannonsDemon():
                                             price=orderBidPrice,
                                             newClientOrderId=myOrderId)
                     except Exception as e:
-                        print(self.timestamp,
-                            '   not able to send buy order for: ', pair,
-                            ' because: ', e)
+                        print_timestamped_message('Not able to send buy order for ' + pair + ' because: ' + e)
                 else:
-                    print(self.timestamp,
-                        '   send DUMMY  buy order: ', '{0: <9}'.format(pair),
-                        ' p: ', '{0: <9}'.format(str(orderBidPrice)),
-                        ' q: ', '{0: <8}'.format(str(myBidQuantity)),
-                        ' l: ', '{0: <9}'.format(str(midPrice)),
-                        ' b: ', awayFromBuy)
+                    print_timestamped_message(
+                        'Send DUMMY  buy order: {0: <9}'.format(pair) + \
+                        ' p: {0: <9}'.format(str(orderBidPrice)) + \
+                        ' q: {0: <8}'.format(str(myBidQuantity)) + \
+                        ' l: {0: <9}'.format(str(midPrice)) + \
+                        ' b: {}'.format(awayFromBuy))
 
                 # start sell order
                 orderAskPrice = tickSizeFormat.format(
                     max(myaskPrice, askPrice - tickSize))
                 orderAskQuantity = myAskQuantity
                 if config['state'] == 'TRADE' and self.circuitBreaker:
-                    print(self.timestamp,
-                        '   send sell order: ', '{0: <9}'.format(pair),
-                        ' p: ', '{0: <9}'.format(str(orderAskPrice)),
-                        ' q: ', '{0: <8}'.format(str(myAskQuantity)),
-                        ' l: ', '{0: <9}'.format(str(midPrice)),
-                        ' s: ', awayFromSell)
+                    print_timestamped_message(
+                        'Send sell order: ', '{0: <9}'.format(pair) + \
+                        ' p: {0: <9}'.format(str(orderAskPrice)) + \
+                        ' q: {0: <8}'.format(str(myAskQuantity)) + \
+                        ' l: {0: <9}'.format(str(midPrice)) + \
+                        ' s: {}'.format(awayFromSell))
 
                     myOrderId = 'SHN-S-' + pair + '-' + str(int(time.time() - self.timeConst))
                     try:
@@ -334,19 +321,18 @@ class ShannonsDemon():
                                                 price=orderAskPrice,
                                                 newClientOrderId=myOrderId)
                     except Exception as e:
-                        print(self.timestamp,
-                            '   not able to send sell order for: ', pair,
-                            ' because: ', e)
+                        print_timestamped_message('Not able to send buy order for ' + pair + ' because: ' + e)
+
                 else:
-                    print(self.timestamp,
-                        '   send DUMMY sell order: ', '{0: <9}'.format(pair),
-                        ' p: ', '{0: <9}'.format(str(orderAskPrice)),
-                        ' q: ', '{0: <8}'.format(str(myAskQuantity)),
-                        ' l: ', '{0: <9}'.format(str(midPrice)),
-                        ' s: ', awayFromSell)
+                    print_timestamped_message(
+                        'Send DUMMY sell order: {0: <9}'.format(pair) + \
+                        ' p: {0: <9}'.format(str(orderAskPrice)) + \
+                        ' q: {0: <8}'.format(str(myAskQuantity)) + \
+                        ' l: {0: <9}'.format(str(midPrice)) + \
+                        ' s: {}'.format(awayFromSell))
 
         except Exception as e:
-            print(self.timestamp, '    not able to send orders ', e)
+            print_timestamped_message('Not able to send orders ' + e)
 
         self.firstRun = False
 
@@ -372,11 +358,11 @@ def main():
     
     if bot.initialized:
         
-        print(bot.timestamp, '   start initializing')
+        print_timestamped_message('Start initializing')
         binanceMarkets = apiClient.get_exchange_info()['symbols']
-        print(bot.timestamp, '   end initializing')
+        print_timestamped_message('End initializing')
         
-        print(bot.timestamp, '   start cancel all orders')
+        print_timestamped_message('Start cancel all orders')
         for market in markets:
             pair = market['market']
 
@@ -388,17 +374,17 @@ def main():
         
             time.sleep(5)
             apiClient.cancel_all_orders(pair)       
-        print(bot.timestamp, '   end cancel all orders')
+        print_timestamped_message('End cancel all orders')
         
         rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
 
     while True and bot.initialized:
 
         if not bot.circuitBreaker:
-            print(bot.timestamp, '   circuitBreaker false, do not send orders')
+            print_timestamped_message('CircuitBreaker false, do not send orders')
         else:
             
-            print(bot.timestamp, '   start processing trades')
+            print_timestamped_message('Start processing trades')
             for i, market in enumerate(markets):
                 pair = market['market']
                 lastId = market['fromId']
@@ -413,39 +399,38 @@ def main():
                         bot.print_new_trade(trade, pair)
             
             configData.write_config(filename)           
-            print(bot.timestamp, '   end processing trades')
+            print_timestamped_message('End processing trades')
 
 
             # Send orders special or normal
             lastUpdate = time.time()
             if time.time() > rebalanceUpdate + rebalanceIntervalSeconds and rebalanceIntervalSeconds > 0:
                 rebalanceUpdate = time.time()
-                print(bot.timestamp, '   start sending special orders')
+                print_timestamped_message('Start sending special orders')
                 bot.specialOrders = True
                 bot.send_orders(configData.config, apiClient, marketsInfo)
                 bot.specialOrders = False
-                print(bot.timestamp, '   end sending special orders')
+                print_timestamped_message('End sending special orders')
             else:
-                print(bot.timestamp, '   start sending orders')
+                print_timestamped_message('Start sending orders')
                 bot.send_orders(configData.config, apiClient, marketsInfo)
-                print(bot.timestamp, '   end sending orders')
+                print_timestamped_message('End sending orders')
 
             for i in range(len(bot.lastTrades)):
                 if bot.lastTrades[i] is not None:
-                    print(bot.timestamp, '   last 3 trades: ', bot.lastTrades[i])
+                    print_timestamped_message('Last 3 trades: ' + bot.lastTrades[i])
 
-        print(bot.timestamp, '   sleep for: ', quoteIntervalSeconds, ' seconds')
+        print_timestamped_message('Sleep for: ' + str(quoteIntervalSeconds) + ' seconds')
         time.sleep(quoteIntervalSeconds)
 
         # Cancel orders
         lastUpdate = time.time()
-        print(bot.timestamp, '   start cancel all orders')
+        print_timestamped_message('Start cancel all orders')
         for market in markets:
             apiClient.cancel_all_orders(pair)
-            #apiClient.cancel_all_orders(configData.config, apiClient)
-        print(bot.timestamp, '   end cancel all orders')
+        print_timestamped_message('End cancel all orders')
 
-        print(bot.timestamp, '   sleep for: ', waitIntervalSeconds, ' seconds')
+        print_timestamped_message('Sleep for: ' + str(waitIntervalSeconds) + ' seconds')
         time.sleep(waitIntervalSeconds)
 
 
