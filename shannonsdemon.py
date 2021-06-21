@@ -112,6 +112,7 @@ class ShannonsDemon():
         self.circuitBreaker = True
 
         self.marketsConfig = {}
+        self.marketsFormats = {}
 
         self.specialOrders = True
         self.timeConst = 1579349682.0
@@ -196,16 +197,16 @@ class ShannonsDemon():
             self.circuitBreaker = False
 
 
-    def send_orders(self, config, client, marketsInfo):
+    def send_orders(self, config, client):
         try:
             for i in range(len(config['pairs'])):
 
                 self.circuitBreaker = True
                 pair = config['pairs'][i]['market']
                 coin = float(config['pairs'][i]['base_asset_qty'])
-                tickSize = marketsInfo[pair]['tickSize']
-                tickSizeFormat = marketsInfo[pair]['tickSizeFormat']
-                stepSizeFormat = marketsInfo[pair]['stepSizeFormat']
+                tickSize = self.marketsFormats[pair]['tickSize']
+                tickSizeFormat = self.marketsFormats[pair]['tickSizeFormat']
+                stepSizeFormat = self.marketsFormats[pair]['stepSizeFormat']
 
                 try:
                     prices = client.get_ticker(symbol=pair)
@@ -361,7 +362,7 @@ def main():
 
 
     #markets = configData.config['pairs']
-    marketsInfo = {}
+    #self.marketsFormats = {}
     
     if bot.initialized:
         
@@ -377,7 +378,7 @@ def main():
             for binanceMarket in binanceMarkets:
                 if binanceMarket['symbol'] == pair:
                     parameters = bot.get_market_parameters(binanceMarket)
-            marketsInfo[pair] = parameters
+            bot.marketsFormats[pair] = parameters
         
             time.sleep(5)
             apiClient.cancel_all_orders(pair)       
@@ -415,12 +416,12 @@ def main():
                 rebalanceUpdate = time.time()
                 print_timestamped_message('Start sending special orders')
                 bot.specialOrders = True
-                bot.send_orders(configData.config, apiClient, marketsInfo)
+                bot.send_orders(configData.config, apiClient)
                 bot.specialOrders = False
                 print_timestamped_message('End sending special orders')
             else:
                 print_timestamped_message('Start sending orders')
-                bot.send_orders(configData.config, apiClient, marketsInfo)
+                bot.send_orders(configData.config, apiClient)
                 print_timestamped_message('End sending orders')
 
             for i in range(len(bot.lastTrades)):
