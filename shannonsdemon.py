@@ -110,6 +110,9 @@ class ShannonsDemon():
         self.initialized = True
         self.firstRun = True
         self.circuitBreaker = True
+
+        self.marketsConfig = {}
+
         self.specialOrders = True
         self.timeConst = 1579349682.0
         self.lastTradesCounter = -1
@@ -349,11 +352,15 @@ def main():
     
     # Read config file
     configData.read_config(filename)
+    
+    bot.marketsConfig  = configData.config
+    
     waitIntervalSeconds = float(configData.config['sleep_seconds_after_cancel_orders'])
     quoteIntervalSeconds = float(configData.config['sleep_seconds_after_send_orders'])
     rebalanceIntervalSeconds = float(configData.config['rebalance_interval_sec'])
 
-    markets = configData.config['pairs']
+
+    #markets = configData.config['pairs']
     marketsInfo = {}
     
     if bot.initialized:
@@ -363,7 +370,7 @@ def main():
         print_timestamped_message('End initializing')
         
         print_timestamped_message('Start cancel all orders')
-        for market in markets:
+        for market in bot.marketsConfig['pairs']:
             pair = market['market']
 
             parameters = {}
@@ -385,7 +392,7 @@ def main():
         else:
             
             print_timestamped_message('Start processing trades')
-            for i, market in enumerate(markets):
+            for i, market in enumerate(bot.marketsConfig['pairs']):
                 pair = market['market']
                 lastId = market['fromId']
 
@@ -426,7 +433,7 @@ def main():
         # Cancel orders
         lastUpdate = time.time()
         print_timestamped_message('Start cancel all orders')
-        for market in markets:
+        for market in bot.marketsConfig['pairs']:
             apiClient.cancel_all_orders(pair)
         print_timestamped_message('End cancel all orders')
 
