@@ -359,11 +359,7 @@ def main():
     waitIntervalSeconds = float(configData.config['sleep_seconds_after_cancel_orders'])
     quoteIntervalSeconds = float(configData.config['sleep_seconds_after_send_orders'])
     rebalanceIntervalSeconds = float(configData.config['rebalance_interval_sec'])
-
-
-    #markets = configData.config['pairs']
-    #self.marketsFormats = {}
-    
+ 
     if bot.initialized:
         
         print_timestamped_message('Start initializing')
@@ -371,13 +367,13 @@ def main():
         print_timestamped_message('End initializing')
         
         print_timestamped_message('Start cancel all orders')
-        for market in bot.marketsConfig['pairs']:
-            pair = market['market']
-
-            parameters = {}
-            for binanceMarket in binanceMarkets:
-                if binanceMarket['symbol'] == pair:
-                    parameters = bot.get_market_parameters(binanceMarket)
+        for i in range(len(bot.marketsConfig['pairs'])):
+            pair = bot.marketsConfig['pairs'][i]['market']
+            #parameters = {}
+            for i in range(len(binanceMarkets)):
+            
+                if binanceMarkets[i]['symbol'] == pair:
+                    parameters = bot.get_market_parameters(binanceMarkets[i])
             bot.marketsFormats[pair] = parameters
         
             time.sleep(5)
@@ -393,18 +389,18 @@ def main():
         else:
             
             print_timestamped_message('Start processing trades')
-            for i, market in enumerate(bot.marketsConfig['pairs']):
-                pair = market['market']
-                lastId = market['fromId']
+            for i in range(len(bot.marketsConfig['pairs'])):
+                pair = bot.marketsConfig['pairs'][i]['market']
+                lastId = bot.marketsConfig['pairs'][i]['fromId']
 
                 lastTrades = apiClient.get_my_trades(pair, lastId)
 
-                for trade in lastTrades:
-                    orderId = trade['orderId']
+                for j in range(len(lastTrades)):
+                    orderId = lastTrades[j]['orderId']
                     order = apiClient.get_order(pair, orderId)
                     if order['clientOrderId'][0:3] == 'SHN':
-                        configData.update_config(trade, i)
-                        bot.print_new_trade(trade, pair)
+                        configData.update_config(lastTrades[j], i)
+                        bot.print_new_trade(lastTrades[j], pair)
             
             configData.write_config(filename)           
             print_timestamped_message('End processing trades')
@@ -434,7 +430,8 @@ def main():
         # Cancel orders
         lastUpdate = time.time()
         print_timestamped_message('Start cancel all orders')
-        for market in bot.marketsConfig['pairs']:
+        for i in range(len(bot.marketsConfig['pairs'])):
+            pair = bot.marketsConfig['pairs'][i]['market']
             apiClient.cancel_all_orders(pair)
         print_timestamped_message('End cancel all orders')
 
