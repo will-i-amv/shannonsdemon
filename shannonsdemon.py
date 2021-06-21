@@ -81,21 +81,6 @@ class ConfigurationData():
             self.circuitBreaker = False
 
 
-    def update_config(self, trade, i):
-        try:
-            if trade['isBuyer']:
-                self.config['pairs'][i]['base_asset_qty'] += float(trade['qty'])
-                self.config['pairs'][i]['quote_asset_qty'] -= float(trade['quoteQty'])
-            else:
-                self.config['pairs'][i]['base_asset_qty'] -= float(trade['qty'])
-                self.config['pairs'][i]['quote_asset_qty'] += float(trade['quoteQty'])       
-            self.config['pairs'][i]['fromId'] = trade['id']
-
-        except Exception as e:
-            print_timestamped_message('Not able to updte config ', e)
-            self.circuitBreaker = False
-
-
     def write_config(self, filename):
         try:
             with open(filename, 'w') as f:
@@ -191,9 +176,25 @@ class ShannonsDemon():
                 self.lastTradesCounter = 0
             
             time.sleep(1.1)
-            
+    
         except Exception as e:
             print_timestamped_message('Not able to print trade ' + e)
+            self.circuitBreaker = False
+
+
+    def update_config(self, trade, i):
+        
+        try:
+            if trade['isBuyer']:
+                self.marketsConfig['pairs'][i]['base_asset_qty'] += float(trade['qty'])
+                self.marketsConfig['pairs'][i]['quote_asset_qty'] -= float(trade['quoteQty'])
+            else:
+                self.marketsConfig['pairs'][i]['base_asset_qty'] -= float(trade['qty'])
+                self.marketsConfig['pairs'][i]['quote_asset_qty'] += float(trade['quoteQty'])       
+            self.confimarketsConfigg['pairs'][i]['fromId'] = trade['id']
+
+        except Exception as e:
+            print_timestamped_message('Not able to update config ', e)
             self.circuitBreaker = False
 
 
@@ -399,10 +400,12 @@ def main():
                     orderId = lastTrades[j]['orderId']
                     order = apiClient.get_order(pair, orderId)
                     if order['clientOrderId'][0:3] == 'SHN':
-                        configData.update_config(lastTrades[j], i)
+                        bot.update_config(lastTrades[j], i)
+                        #configData.update_config(lastTrades[j], i)
                         bot.print_new_trade(lastTrades[j], pair)
             
-            configData.write_config(filename)           
+            configData.config = bot.marketsConfig
+            configData.write_config(filename)
             print_timestamped_message('End processing trades')
 
 
