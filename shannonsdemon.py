@@ -43,11 +43,11 @@ class BinanceClient(Client):
             self.circuitBreaker = False
 
 
-    def get_my_trades(self, pair, lastId):
+    def get_my_trades(self, pair, lastOrderId):
         lastTrades = []
         try:
             self.circuitBreaker = True
-            tradesTemp = super(BinanceClient, self).get_my_trades(symbol=pair, limit=1000, fromId=lastId + 1)
+            tradesTemp = super(BinanceClient, self).get_my_trades(symbol=pair, limit=1000, fromId=lastOrderId + 1)
             lastTrades = sorted(tradesTemp, key=lambda k: k['id'])
         except Exception as e:
             print_timestamped_message('Not able to get all trades: ' + e)
@@ -349,12 +349,7 @@ def main():
     
     # Read config file
     configData.read_config(filename)
-    
     bot.marketsConfig  = configData.config
-    
-    waitIntervalSeconds = float(configData.config['sleep_seconds_after_cancel_orders'])
-    quoteIntervalSeconds = float(configData.config['sleep_seconds_after_send_orders'])
-    rebalanceIntervalSeconds = float(configData.config['rebalance_interval_sec'])
          
     print_timestamped_message('INITIALIZING')
     binanceMarkets = apiClient.get_exchange_info()
@@ -367,7 +362,8 @@ def main():
                 bot.get_market_parameters(binanceMarkets[j], i)
         time.sleep(5)
         apiClient.cancel_all_orders(pair)        
-        
+    
+    rebalanceIntervalSeconds = float(bot.marketsConfig['rebalance_interval_sec'])        
     rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
 
     while bot.circuitBreaker and bot.initialized:
@@ -381,9 +377,9 @@ def main():
         print_timestamped_message('SENDING BUY AND SELL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
-            lastId = bot.marketsConfig['pairs'][i]['fromId']
+            lastOrderId = bot.marketsConfig['pairs'][i]['fromId']
 
-            lastTrades = apiClient.get_my_trades(pair, lastId)
+            lastTrades = apiClient.get_my_trades(pair, lastOrderId)
 
             for j in range(len(lastTrades)):
                 orderId = lastTrades[j]['orderId']
@@ -398,7 +394,8 @@ def main():
         configData.config = bot.marketsConfig
         configData.write_config(filename)
 
-        print_timestamped_message('Sleep for: ' + str(quoteIntervalSeconds) + ' seconds')
+        quoteIntervalSeconds = float(bot.marketsConfig['sleep_seconds_after_send_orders'])
+        print_timestamped_message('SLEEP FOR {} SECONDS'.format(quoteIntervalSeconds))
         time.sleep(quoteIntervalSeconds)
 
         # Cancel orders
@@ -409,7 +406,8 @@ def main():
             pair = bot.marketsConfig['pairs'][i]['market']
             apiClient.cancel_all_orders(pair)
 
-        print_timestamped_message('Sleep for: ' + str(waitIntervalSeconds) + ' seconds')
+        waitIntervalSeconds = float(bot.marketsConfig['sleep_seconds_after_cancel_orders'])
+        print_timestamped_message('SLEEP FOR {} SECONDS'.format(waitIntervalSeconds))
         time.sleep(waitIntervalSeconds)
 
 
