@@ -27,7 +27,7 @@ class BinanceClient(Client):
         except Exception as e:
             print_timestamped_message('Cannot get market info from exchange: ' + e)
             self.circuitBreaker = False
-        return marketPairs
+        return marketPairs['symbols']
 
 
     def cancel_all_orders(self, pair):
@@ -361,7 +361,7 @@ def main():
     rebalanceIntervalSeconds = float(configData.config['rebalance_interval_sec'])
          
     print_timestamped_message('INITIALIZING')
-    binanceMarkets = apiClient.get_exchange_info()['symbols']
+    binanceMarkets = apiClient.get_exchange_info()
     
     print_timestamped_message('CANCELLING ALL ORDERS')
     for i in range(len(bot.marketsConfig['pairs'])):
