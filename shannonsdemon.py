@@ -152,26 +152,29 @@ class ShannonsDemon():
         self.marketsConfig['pairs'][i]['step_size'] = stepSize
 
 
-    def print_new_trade(self, trade, pair):
+    def print_new_trade(self, trade):
         try:
             
+            timestamp = str(time.ctime((float(trade['time']) / 1000.0)))
             operationType = 'buy' if trade['isBuyer'] else 'sell'
+            pair = trade['symbol']
+            quantity = '{0: <10}'.format(trade['qty'])
+            price = '{0: <10}'.format(trade['price'])
+
+            message = ' NEW EXECUTED TRADE:\n' + \
+            ' Timestamp\n: {}'.format(timestamp) + \
+            ' Operation Type\n: {}'.format(operationType) + \
+            ' Pair: {}\n'.format(pair) + \
+            ' Price: {}\n'.format(price)  + \
+            ' Quantity: {}\n'.format(quantity)
+
+            print_timestamped_message(message)
             
-            print_timestamped_message(
-                '   new trade ({}):'.format(operationType), pair,
-                ' quantity: ', trade['qty'],
-                ' price: ', trade['price'])
-            
-            timestamp2 = str(time.ctime((float(trade['time']) / 1000.0)))
-            operation = ' {}:'.format(operationType) + '{0: <10}'.format(pair)
-            quantity = ' qty: ' + '{0: <10}'.format(trade['qty'])
-            price = ' price: ' + '{0: <10}'.format(trade['price'])
-            
-            self.lastTrades[self.lastTradesCounter] = ' ' + timestamp2 + operation + quantity + price
+            self.lastTrades[self.lastTradesCounter] = message
             self.lastTradesCounter += 1
             if self.lastTradesCounter >= 3:
                 self.lastTradesCounter = 0
-            
+
             time.sleep(1.1)
     
         except Exception as e:
@@ -394,7 +397,7 @@ def main():
                 order = apiClient.get_order(pair, orderId)
                 if order['clientOrderId'][0:3] == 'SHN':
                     bot.update_config(lastTrades[j], i)
-                    bot.print_new_trade(lastTrades[j], pair)
+                    bot.print_new_trade(lastTrades[j])
         
             bot.send_orders(configData.config, apiClient, i)
 
