@@ -97,7 +97,6 @@ class ShannonsDemon():
         self.circuitBreaker = True
 
         self.marketsConfig = {}
-        self.marketsFormats = {}
 
         self.specialOrders = True
         self.timeConst = 1579349682.0
@@ -105,8 +104,7 @@ class ShannonsDemon():
         self.lastTrades = [None] * 3
     
 
-    def get_market_parameters(self, market):
-        parameters = {}
+    def get_market_parameters(self, market, i):
         for marketFilter in market['filters']:
             if marketFilter['filterType'] == 'LOT_SIZE':
                 stepSize = float(marketFilter['stepSize'])
@@ -148,11 +146,10 @@ class ShannonsDemon():
                     tickSizesFormat = '{:.7f}'
                 elif tickSize == 0.00000001:
                     tickSizesFormat = '{:.8f}'
-        parameters['tickSizeFormat'] = tickSizesFormat
-        parameters['stepSizeFormat'] = stepSizesFormat
-        parameters['tickSize'] = tickSize
-        parameters['stepSize'] = stepSize
-        return parameters
+        self.marketsConfig['pairs'][i]['tickSizeFormat'] = tickSizesFormat
+        self.marketsConfig['pairs'][i]['stepSizeFormat'] = stepSizesFormat
+        self.marketsConfig['pairs'][i]['tickSize'] = tickSize
+        self.marketsConfig['pairs'][i]['stepSize'] = stepSize
 
 
     def print_new_trade(self, trade, pair):
@@ -191,7 +188,7 @@ class ShannonsDemon():
             else:
                 self.marketsConfig['pairs'][i]['base_asset_qty'] -= float(trade['qty'])
                 self.marketsConfig['pairs'][i]['quote_asset_qty'] += float(trade['quoteQty'])       
-            self.confimarketsConfigg['pairs'][i]['fromId'] = trade['id']
+            self.marketsConfig['pairs'][i]['fromId'] = trade['id']
 
         except Exception as e:
             print_timestamped_message('Not able to update config ', e)
@@ -205,9 +202,10 @@ class ShannonsDemon():
                 self.circuitBreaker = True
                 pair = config['pairs'][i]['market']
                 coin = float(config['pairs'][i]['base_asset_qty'])
-                tickSize = self.marketsFormats[pair]['tickSize']
-                tickSizeFormat = self.marketsFormats[pair]['tickSizeFormat']
-                stepSizeFormat = self.marketsFormats[pair]['stepSizeFormat']
+
+                tickSize = self.marketsConfig['pairs'][i]['tickSize']
+                tickSizeFormat = self.marketsConfig['pairs'][i]['tickSizeFormat']
+                stepSizeFormat = self.marketsConfig['pairs'][i]['stepSizeFormat']
 
                 try:
                     prices = client.get_ticker(symbol=pair)
@@ -370,12 +368,9 @@ def main():
         print_timestamped_message('Start cancel all orders')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
-            #parameters = {}
-            for i in range(len(binanceMarkets)):
-            
-                if binanceMarkets[i]['symbol'] == pair:
-                    parameters = bot.get_market_parameters(binanceMarkets[i])
-            bot.marketsFormats[pair] = parameters
+            for j in range(len(binanceMarkets)):            
+                if binanceMarkets[j]['symbol'] == pair:
+                    bot.get_market_parameters(binanceMarkets[j], i)
         
             time.sleep(5)
             apiClient.cancel_all_orders(pair)       
