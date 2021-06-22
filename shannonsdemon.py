@@ -195,62 +195,55 @@ class ShannonsDemon():
             self.circuitBreaker = False
 
 
-    def send_orders(self, config, client):
+    def send_orders(self, config, client, i):
         try:
-            for i in range(len(config['pairs'])):
+            #for i in range(len(config['pairs'])):
 
+            self.circuitBreaker = True
+            pair = config['pairs'][i]['market']
+            coin = float(config['pairs'][i]['base_asset_qty'])
+
+            tickSize = self.marketsConfig['pairs'][i]['tick_size']
+            tickSizeFormat = self.marketsConfig['pairs'][i]['tick_size_format']
+            stepSizeFormat = self.marketsConfig['pairs'][i]['step_size_format']
+
+            try:
+                prices = client.get_ticker(symbol=pair)
                 self.circuitBreaker = True
-                pair = config['pairs'][i]['market']
-                coin = float(config['pairs'][i]['base_asset_qty'])
+            except Exception as e:
+                self.circuitBreaker = False
+                print_timestamped_message('Not able to get price ' + e)
 
-                tickSize = self.marketsConfig['pairs'][i]['tick_size']
-                tickSizeFormat = self.marketsConfig['pairs'][i]['tick_size_format']
-                stepSizeFormat = self.marketsConfig['pairs'][i]['step_size_format']
+            bidPrice = float(prices['bidPrice'])
+            askPrice = float(prices['askPrice'])
+            midPrice = tickSizeFormat.format(0.5 * (bidPrice + askPrice))
 
-                try:
-                    prices = client.get_ticker(symbol=pair)
-                    self.circuitBreaker = True
-                except Exception as e:
-                    self.circuitBreaker = False
-                    print_timestamped_message('Not able to get price ' + e)
+            totalCoin = float(coin)
+            totalCash = float(config['pairs'][i]['quote_asset_qty'])
 
-                bidPrice = float(prices['bidPrice'])
-                askPrice = float(prices['askPrice'])
-                midPrice = tickSizeFormat.format(0.5 * (bidPrice + askPrice))
+            fairPrice = totalCash / totalCoin
 
-                totalCoin = float(coin)
-                totalCash = float(config['pairs'][i]['quote_asset_qty'])
+            awayFromBuy = '{:.1f}'.format(
+                100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
+            awayFromSell = '{:.1f}'.format(
+                100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
+            awayFrommidPrice = (float(midPrice) - fairPrice) / fairPrice
 
-                fairPrice = totalCash / totalCoin
-
-                awayFromBuy = '{:.1f}'.format(
-                    100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
-                awayFromSell = '{:.1f}'.format(
-                    100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
-                awayFrommidPrice = (float(midPrice) - fairPrice) / fairPrice
-
-                if self.specialOrders:
-                    if float(awayFrommidPrice) >= 0.05:
-                        bidPercentage = min(
-                            0.95,
-                            float(config['pairs'][i]['buy_percentage']))
-                        askPercentage = max(
-                            1.05,
-                            1.0 + float(awayFrommidPrice))
-                    elif float(awayFrommidPrice) <= -0.05:
-                        bidPercentage = min(
-                            0.95,
-                            1.0 + float(awayFrommidPrice))
-                        askPercentage = max(
-                            1.05,
-                            float(config['pairs'][i]['sell_percentage']))
-                    else:
-                        bidPercentage = min(
-                            0.95,
-                            float(config['pairs'][i]['buy_percentage']))
-                        askPercentage = max(
-                            1.05,
-                            float(config['pairs'][i]['sell_percentage']))
+            if self.specialOrders:
+                if float(awayFrommidPrice) >= 0.05:
+                    bidPercentage = min(
+                        0.95,
+                        float(config['pairs'][i]['buy_percentage']))
+                    askPercentage = max(
+                        1.05,
+                        1.0 + float(awayFrommidPrice))
+                elif float(awayFrommidPrice) <= -0.05:
+                    bidPercentage = min(
+                        0.95,
+                        1.0 + float(awayFrommidPrice))
+                    askPercentage = max(
+                        1.05,
+                        float(config['pairs'][i]['sell_percentage']))
                 else:
                     bidPercentage = min(
                         0.95,
@@ -258,81 +251,88 @@ class ShannonsDemon():
                     askPercentage = max(
                         1.05,
                         float(config['pairs'][i]['sell_percentage']))
+            else:
+                bidPercentage = min(
+                    0.95,
+                    float(config['pairs'][i]['buy_percentage']))
+                askPercentage = max(
+                    1.05,
+                    float(config['pairs'][i]['sell_percentage']))
 
-                mybidPrice = bidPercentage * fairPrice
-                myaskPrice = askPercentage * fairPrice
+            mybidPrice = bidPercentage * fairPrice
+            myaskPrice = askPercentage * fairPrice
 
-                if float(midPrice) < 0.99 * mybidPrice or float(midPrice) > 1.01 * myaskPrice:
-                    self.circuitBreaker = False
-                    print_timestamped_message('Please inspect quantities config file as bot hits market')
-                    if self.firstRun:
-                        self.initialized = False
-                else:
-                    self.circuitBreaker = True
+            if float(midPrice) < 0.99 * mybidPrice or float(midPrice) > 1.01 * myaskPrice:
+                self.circuitBreaker = False
+                print_timestamped_message('Please inspect quantities config file as bot hits market')
+                if self.firstRun:
+                    self.initialized = False
+            else:
+                self.circuitBreaker = True
 
-                myBidQuantity = stepSizeFormat.format(
-                    (0.5 * (totalCoin * mybidPrice + totalCash) - totalCoin * mybidPrice)
-                    * 1.0 / mybidPrice)
-                myAskQuantity = stepSizeFormat.format(
-                    (-0.5 * (totalCoin * myaskPrice + totalCash) + totalCoin * myaskPrice)
-                    * 1.0 / myaskPrice)
+            myBidQuantity = stepSizeFormat.format(
+                (0.5 * (totalCoin * mybidPrice + totalCash) - totalCoin * mybidPrice)
+                * 1.0 / mybidPrice)
+            myAskQuantity = stepSizeFormat.format(
+                (-0.5 * (totalCoin * myaskPrice + totalCash) + totalCoin * myaskPrice)
+                * 1.0 / myaskPrice)
 
-                # start buy order
-                orderBidPrice = tickSizeFormat.format(
-                    min(mybidPrice, bidPrice + tickSize))
-                orderBidQuantity = myBidQuantity
-                if config['state'] == 'TRADE' and self.circuitBreaker:
-                    print_timestamped_message(
-                        'Send buy  order: {0: <9}'.format(pair) + \
-                        ' p: {0: <9}'.format(str(orderBidPrice)) + \
-                        ' q: {0: <8}'.format(str(myBidQuantity)) + \
-                        ' l: {0: <9}'.format(str(midPrice)) + \
-                        ' b: {}'.format(awayFromBuy))
+            # start buy order
+            orderBidPrice = tickSizeFormat.format(
+                min(mybidPrice, bidPrice + tickSize))
+            orderBidQuantity = myBidQuantity
+            if config['state'] == 'TRADE' and self.circuitBreaker:
+                print_timestamped_message(
+                    'Send buy  order: {0: <9}'.format(pair) + \
+                    ' p: {0: <9}'.format(str(orderBidPrice)) + \
+                    ' q: {0: <8}'.format(str(myBidQuantity)) + \
+                    ' l: {0: <9}'.format(str(midPrice)) + \
+                    ' b: {}'.format(awayFromBuy))
 
-                    myOrderId = 'SHN-B-' + pair + '-' + str(int(time.time() - self.timeConst))
-                    try:
-                        client.order_limit_buy(symbol=pair,
-                                            quantity=orderBidQuantity,
-                                            price=orderBidPrice,
+                myOrderId = 'SHN-B-' + pair + '-' + str(int(time.time() - self.timeConst))
+                try:
+                    client.order_limit_buy(symbol=pair,
+                                        quantity=orderBidQuantity,
+                                        price=orderBidPrice,
+                                        newClientOrderId=myOrderId)
+                except Exception as e:
+                    print_timestamped_message('Not able to send buy order for ' + pair + ' because: ' + e)
+            else:
+                print_timestamped_message(
+                    'Send DUMMY  buy order: {0: <9}'.format(pair) + \
+                    ' p: {0: <9}'.format(str(orderBidPrice)) + \
+                    ' q: {0: <8}'.format(str(myBidQuantity)) + \
+                    ' l: {0: <9}'.format(str(midPrice)) + \
+                    ' b: {}'.format(awayFromBuy))
+
+            # start sell order
+            orderAskPrice = tickSizeFormat.format(
+                max(myaskPrice, askPrice - tickSize))
+            orderAskQuantity = myAskQuantity
+            if config['state'] == 'TRADE' and self.circuitBreaker:
+                print_timestamped_message(
+                    'Send sell order: ', '{0: <9}'.format(pair) + \
+                    ' p: {0: <9}'.format(str(orderAskPrice)) + \
+                    ' q: {0: <8}'.format(str(myAskQuantity)) + \
+                    ' l: {0: <9}'.format(str(midPrice)) + \
+                    ' s: {}'.format(awayFromSell))
+
+                myOrderId = 'SHN-S-' + pair + '-' + str(int(time.time() - self.timeConst))
+                try:
+                    client.order_limit_sell(symbol=pair,
+                                            quantity=orderAskQuantity,
+                                            price=orderAskPrice,
                                             newClientOrderId=myOrderId)
-                    except Exception as e:
-                        print_timestamped_message('Not able to send buy order for ' + pair + ' because: ' + e)
-                else:
-                    print_timestamped_message(
-                        'Send DUMMY  buy order: {0: <9}'.format(pair) + \
-                        ' p: {0: <9}'.format(str(orderBidPrice)) + \
-                        ' q: {0: <8}'.format(str(myBidQuantity)) + \
-                        ' l: {0: <9}'.format(str(midPrice)) + \
-                        ' b: {}'.format(awayFromBuy))
+                except Exception as e:
+                    print_timestamped_message('Not able to send buy order for ' + pair + ' because: ' + e)
 
-                # start sell order
-                orderAskPrice = tickSizeFormat.format(
-                    max(myaskPrice, askPrice - tickSize))
-                orderAskQuantity = myAskQuantity
-                if config['state'] == 'TRADE' and self.circuitBreaker:
-                    print_timestamped_message(
-                        'Send sell order: ', '{0: <9}'.format(pair) + \
-                        ' p: {0: <9}'.format(str(orderAskPrice)) + \
-                        ' q: {0: <8}'.format(str(myAskQuantity)) + \
-                        ' l: {0: <9}'.format(str(midPrice)) + \
-                        ' s: {}'.format(awayFromSell))
-
-                    myOrderId = 'SHN-S-' + pair + '-' + str(int(time.time() - self.timeConst))
-                    try:
-                        client.order_limit_sell(symbol=pair,
-                                                quantity=orderAskQuantity,
-                                                price=orderAskPrice,
-                                                newClientOrderId=myOrderId)
-                    except Exception as e:
-                        print_timestamped_message('Not able to send buy order for ' + pair + ' because: ' + e)
-
-                else:
-                    print_timestamped_message(
-                        'Send DUMMY sell order: {0: <9}'.format(pair) + \
-                        ' p: {0: <9}'.format(str(orderAskPrice)) + \
-                        ' q: {0: <8}'.format(str(myAskQuantity)) + \
-                        ' l: {0: <9}'.format(str(midPrice)) + \
-                        ' s: {}'.format(awayFromSell))
+            else:
+                print_timestamped_message(
+                    'Send DUMMY sell order: {0: <9}'.format(pair) + \
+                    ' p: {0: <9}'.format(str(orderAskPrice)) + \
+                    ' q: {0: <8}'.format(str(myAskQuantity)) + \
+                    ' l: {0: <9}'.format(str(midPrice)) + \
+                    ' s: {}'.format(awayFromSell))
 
         except Exception as e:
             print_timestamped_message('Not able to send orders ' + e)
@@ -371,17 +371,24 @@ def main():
         for j in range(len(binanceMarkets)):            
             if binanceMarkets[j]['symbol'] == pair:
                 bot.get_market_parameters(binanceMarkets[j], i)
-    
         time.sleep(5)
-        apiClient.cancel_all_orders(pair)       
- 
+        apiClient.cancel_all_orders(pair)        
+    
     print_timestamped_message('End cancel all orders')
     
     rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
 
     while bot.circuitBreaker and bot.initialized:
-        
+
+        # Send orders special or normal
+        lastUpdate = time.time()
+        if time.time() > rebalanceUpdate + rebalanceIntervalSeconds and rebalanceIntervalSeconds > 0:
+            rebalanceUpdate = time.time()
+            bot.specialOrders = True
+
         print_timestamped_message('Start processing trades')
+        print_timestamped_message('Start sending orders')
+
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
             lastId = bot.marketsConfig['pairs'][i]['fromId']
@@ -395,24 +402,21 @@ def main():
                     bot.update_config(lastTrades[j], i)
                     bot.print_new_trade(lastTrades[j], pair)
         
-        configData.config = bot.marketsConfig
-        configData.write_config(filename)
+            bot.send_orders(configData.config, apiClient, i)
+
         print_timestamped_message('End processing trades')
-
-
-        # Send orders special or normal
-        lastUpdate = time.time()
-        if time.time() > rebalanceUpdate + rebalanceIntervalSeconds and rebalanceIntervalSeconds > 0:
-            rebalanceUpdate = time.time()
-            bot.specialOrders = True
-
-        print_timestamped_message('Start sending orders')
-        bot.send_orders(configData.config, apiClient)
         print_timestamped_message('End sending orders')
 
         for i in range(len(bot.lastTrades)):
             if bot.lastTrades[i] is not None:
                 print_timestamped_message('Last 3 trades: ' + bot.lastTrades[i])
+
+        configData.config = bot.marketsConfig
+        configData.write_config(filename)
+
+
+
+
 
         print_timestamped_message('Sleep for: ' + str(quoteIntervalSeconds) + ' seconds')
         time.sleep(quoteIntervalSeconds)
