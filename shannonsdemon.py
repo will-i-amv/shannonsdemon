@@ -175,7 +175,7 @@ class ShannonsDemon():
             self.circuitBreaker = False
 
 
-    def update_config(self, trade, i):
+    def calculate_new_asset_quantities(self, trade, i):
         
         try:
             if trade['isBuyer']:
@@ -389,9 +389,8 @@ def main():
                 orderId = lastTrades[j]['orderId']
                 order = apiClient.get_order(pair, orderId)
                 if order['clientOrderId'][0:3] == 'SHN':
-                    bot.update_config(lastTrades[j], i)
+                    bot.calculate_new_asset_quantities(lastTrades[j], i)
                     bot.print_new_trade(lastTrades[j])
-        
             bot.send_orders(configData.config, apiClient, i)
 
         configData.config = bot.marketsConfig
