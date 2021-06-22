@@ -100,9 +100,7 @@ class ShannonsDemon():
 
         self.specialOrders = False
         self.timeConst = 1579349682.0
-        self.lastTradesCounter = -1
-        self.lastTrades = [None] * 3
-    
+
 
     def get_market_parameters(self, market, i):
         for marketFilter in market['filters']:
@@ -168,13 +166,8 @@ class ShannonsDemon():
             ' Price: {}\n'.format(price)  + \
             ' Quantity: {}\n'.format(quantity)
 
-            print_timestamped_message(message)
+            print_timestamped_message(message)            
             
-            self.lastTrades[self.lastTradesCounter] = message
-            self.lastTradesCounter += 1
-            if self.lastTradesCounter >= 3:
-                self.lastTradesCounter = 0
-
             time.sleep(1.1)
     
         except Exception as e:
@@ -400,10 +393,6 @@ def main():
                     bot.print_new_trade(lastTrades[j])
         
             bot.send_orders(configData.config, apiClient, i)
-
-        for i in range(len(bot.lastTrades)):
-            if bot.lastTrades[i] is not None:
-                print_timestamped_message('Last 3 trades: ' + bot.lastTrades[i])
 
         configData.config = bot.marketsConfig
         configData.write_config(filename)
