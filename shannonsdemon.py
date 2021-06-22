@@ -360,12 +360,10 @@ def main():
     quoteIntervalSeconds = float(configData.config['sleep_seconds_after_send_orders'])
     rebalanceIntervalSeconds = float(configData.config['rebalance_interval_sec'])
          
-    print_timestamped_message('Start initializing')
+    print_timestamped_message('INITIALIZING')
     binanceMarkets = apiClient.get_exchange_info()['symbols']
-    print_timestamped_message('End initializing')
     
-    print_timestamped_message('Start cancel all orders')
- 
+    print_timestamped_message('CANCELLING ALL ORDERS')
     for i in range(len(bot.marketsConfig['pairs'])):
         pair = bot.marketsConfig['pairs'][i]['market']
         for j in range(len(binanceMarkets)):            
@@ -373,9 +371,7 @@ def main():
                 bot.get_market_parameters(binanceMarkets[j], i)
         time.sleep(5)
         apiClient.cancel_all_orders(pair)        
-    
-    print_timestamped_message('End cancel all orders')
-    
+        
     rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
 
     while bot.circuitBreaker and bot.initialized:
@@ -386,9 +382,7 @@ def main():
             rebalanceUpdate = time.time()
             bot.specialOrders = True
 
-        print_timestamped_message('Start processing trades')
-        print_timestamped_message('Start sending orders')
-
+        print_timestamped_message('SENDING BUY AND SELL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
             lastId = bot.marketsConfig['pairs'][i]['fromId']
@@ -404,9 +398,6 @@ def main():
         
             bot.send_orders(configData.config, apiClient, i)
 
-        print_timestamped_message('End processing trades')
-        print_timestamped_message('End sending orders')
-
         for i in range(len(bot.lastTrades)):
             if bot.lastTrades[i] is not None:
                 print_timestamped_message('Last 3 trades: ' + bot.lastTrades[i])
@@ -414,20 +405,16 @@ def main():
         configData.config = bot.marketsConfig
         configData.write_config(filename)
 
-
-
-
-
         print_timestamped_message('Sleep for: ' + str(quoteIntervalSeconds) + ' seconds')
         time.sleep(quoteIntervalSeconds)
 
         # Cancel orders
         lastUpdate = time.time()
-        print_timestamped_message('Start cancel all orders')
+
+        print_timestamped_message('CANCELLING ALL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
             apiClient.cancel_all_orders(pair)
-        print_timestamped_message('End cancel all orders')
 
         print_timestamped_message('Sleep for: ' + str(waitIntervalSeconds) + ' seconds')
         time.sleep(waitIntervalSeconds)
