@@ -98,7 +98,7 @@ class ShannonsDemon():
 
         self.marketsConfig = {}
 
-        self.specialOrders = True
+        self.specialOrders = False
         self.timeConst = 1579349682.0
         self.lastTradesCounter = -1
         self.lastTrades = [None] * 3
@@ -338,6 +338,7 @@ class ShannonsDemon():
             print_timestamped_message('Not able to send orders ' + e)
 
         self.firstRun = False
+        self.specialOrders = False
 
 
 def main():
@@ -358,69 +359,60 @@ def main():
     waitIntervalSeconds = float(configData.config['sleep_seconds_after_cancel_orders'])
     quoteIntervalSeconds = float(configData.config['sleep_seconds_after_send_orders'])
     rebalanceIntervalSeconds = float(configData.config['rebalance_interval_sec'])
+         
+    print_timestamped_message('Start initializing')
+    binanceMarkets = apiClient.get_exchange_info()['symbols']
+    print_timestamped_message('End initializing')
+    
+    print_timestamped_message('Start cancel all orders')
  
-    if bot.initialized:
+    for i in range(len(bot.marketsConfig['pairs'])):
+        pair = bot.marketsConfig['pairs'][i]['market']
+        for j in range(len(binanceMarkets)):            
+            if binanceMarkets[j]['symbol'] == pair:
+                bot.get_market_parameters(binanceMarkets[j], i)
+    
+        time.sleep(5)
+        apiClient.cancel_all_orders(pair)       
+ 
+    print_timestamped_message('End cancel all orders')
+    
+    rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
+
+    while bot.circuitBreaker and bot.initialized:
         
-        print_timestamped_message('Start initializing')
-        binanceMarkets = apiClient.get_exchange_info()['symbols']
-        print_timestamped_message('End initializing')
-        
-        print_timestamped_message('Start cancel all orders')
+        print_timestamped_message('Start processing trades')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
-            for j in range(len(binanceMarkets)):            
-                if binanceMarkets[j]['symbol'] == pair:
-                    bot.get_market_parameters(binanceMarkets[j], i)
+            lastId = bot.marketsConfig['pairs'][i]['fromId']
+
+            lastTrades = apiClient.get_my_trades(pair, lastId)
+
+            for j in range(len(lastTrades)):
+                orderId = lastTrades[j]['orderId']
+                order = apiClient.get_order(pair, orderId)
+                if order['clientOrderId'][0:3] == 'SHN':
+                    bot.update_config(lastTrades[j], i)
+                    bot.print_new_trade(lastTrades[j], pair)
         
-            time.sleep(5)
-            apiClient.cancel_all_orders(pair)       
-        print_timestamped_message('End cancel all orders')
-        
-        rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
-
-    while True and bot.initialized:
-
-        if not bot.circuitBreaker:
-            print_timestamped_message('CircuitBreaker false, do not send orders')
-        else:
-            
-            print_timestamped_message('Start processing trades')
-            for i in range(len(bot.marketsConfig['pairs'])):
-                pair = bot.marketsConfig['pairs'][i]['market']
-                lastId = bot.marketsConfig['pairs'][i]['fromId']
-
-                lastTrades = apiClient.get_my_trades(pair, lastId)
-
-                for j in range(len(lastTrades)):
-                    orderId = lastTrades[j]['orderId']
-                    order = apiClient.get_order(pair, orderId)
-                    if order['clientOrderId'][0:3] == 'SHN':
-                        bot.update_config(lastTrades[j], i)
-                        #configData.update_config(lastTrades[j], i)
-                        bot.print_new_trade(lastTrades[j], pair)
-            
-            configData.config = bot.marketsConfig
-            configData.write_config(filename)
-            print_timestamped_message('End processing trades')
+        configData.config = bot.marketsConfig
+        configData.write_config(filename)
+        print_timestamped_message('End processing trades')
 
 
-            # Send orders special or normal
-            lastUpdate = time.time()
-            if time.time() > rebalanceUpdate + rebalanceIntervalSeconds and rebalanceIntervalSeconds > 0:
-                rebalanceUpdate = time.time()
-                print_timestamped_message('Start sending special orders')
-                bot.specialOrders = True
-                bot.send_orders(configData.config, apiClient)
-                bot.specialOrders = False
-                print_timestamped_message('End sending special orders')
-            else:
-                print_timestamped_message('Start sending orders')
-                bot.send_orders(configData.config, apiClient)
-                print_timestamped_message('End sending orders')
+        # Send orders special or normal
+        lastUpdate = time.time()
+        if time.time() > rebalanceUpdate + rebalanceIntervalSeconds and rebalanceIntervalSeconds > 0:
+            rebalanceUpdate = time.time()
+            bot.specialOrders = True
 
-            for i in range(len(bot.lastTrades)):
-                if bot.lastTrades[i] is not None:
-                    print_timestamped_message('Last 3 trades: ' + bot.lastTrades[i])
+        print_timestamped_message('Start sending orders')
+        bot.send_orders(configData.config, apiClient)
+        print_timestamped_message('End sending orders')
+
+        for i in range(len(bot.lastTrades)):
+            if bot.lastTrades[i] is not None:
+                print_timestamped_message('Last 3 trades: ' + bot.lastTrades[i])
 
         print_timestamped_message('Sleep for: ' + str(quoteIntervalSeconds) + ' seconds')
         time.sleep(quoteIntervalSeconds)
