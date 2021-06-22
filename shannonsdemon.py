@@ -97,6 +97,7 @@ class ShannonsDemon():
         self.circuitBreaker = True
 
         self.marketsConfig = {}
+        self.tradeData = {}
 
         self.specialOrders = False
         self.timeConst = 1579349682.0
@@ -149,42 +150,41 @@ class ShannonsDemon():
         self.marketsConfig['pairs'][i]['tick_size'] = tickSize
         self.marketsConfig['pairs'][i]['step_size'] = stepSize
 
+    def get_new_trade(self, trade):
+        self.tradeData['timestamp'] = str(time.ctime((float(trade['time']) / 1000.0)))
+        self.tradeData['operationType'] = 'buy' if trade['isBuyer'] else 'sell'
+        self.tradeData['pair'] = trade['symbol']
+        self.tradeData['price'] = '{0: <10}'.format(trade['price'])
+        self.tradeData['base_asset_qty'] = '{0: <10}'.format(trade['qty'])
+        self.tradeData['quote_asset_qty'] = '{0: <10}'.format(trade['quoteQty'])
+        self.tradeData['id'] = trade['id']
+        
 
-    def print_new_trade(self, trade):
+    def print_new_trade(self):
         try:
-            
-            timestamp = str(time.ctime((float(trade['time']) / 1000.0)))
-            operationType = 'buy' if trade['isBuyer'] else 'sell'
-            pair = trade['symbol']
-            quantity = '{0: <10}'.format(trade['qty'])
-            price = '{0: <10}'.format(trade['price'])
-
-            message = ' NEW EXECUTED TRADE:\n' + \
-            ' Timestamp\n: {}'.format(timestamp) + \
-            ' Operation Type\n: {}'.format(operationType) + \
-            ' Pair: {}\n'.format(pair) + \
-            ' Price: {}\n'.format(price)  + \
-            ' Quantity: {}\n'.format(quantity)
-
-            print_timestamped_message(message)            
-            
-            time.sleep(1.1)
+            print_timestamped_message(
+                ' NEW EXECUTED TRADE:\n' + \
+                ' Timestamp\n: {}'.format(self.tradeData['timestamp']) + \
+                ' Operation Type\n: {}'.format(self.tradeData['operationType']) + \
+                ' Pair: {}\n'.format(self.tradeData['pair']) + \
+                ' Price: {}\n'.format(self.tradeData['price'])  + \
+                ' Quantity: {}\n'.format(self.tradeData['quantity']))
     
         except Exception as e:
             print_timestamped_message('Not able to print trade ' + e)
             self.circuitBreaker = False
 
 
-    def calculate_new_asset_quantities(self, trade, i):
+    def calculate_new_asset_quantities(self, i):
         
         try:
-            if trade['isBuyer']:
-                self.marketsConfig['pairs'][i]['base_asset_qty'] += float(trade['qty'])
-                self.marketsConfig['pairs'][i]['quote_asset_qty'] -= float(trade['quoteQty'])
+            if self.tradeData['operationType'] == 'buy':
+                self.marketsConfig['pairs'][i]['base_asset_qty'] += float(self.tradeData['base_asset_qty'])
+                self.marketsConfig['pairs'][i]['quote_asset_qty'] -= float(self.tradeData['quote_asset_qty'])
             else:
-                self.marketsConfig['pairs'][i]['base_asset_qty'] -= float(trade['qty'])
-                self.marketsConfig['pairs'][i]['quote_asset_qty'] += float(trade['quoteQty'])       
-            self.marketsConfig['pairs'][i]['fromId'] = trade['id']
+                self.marketsConfig['pairs'][i]['base_asset_qty'] -= float(self.tradeData['base_asset_qty'])
+                self.marketsConfig['pairs'][i]['quote_asset_qty'] += float(self.tradeData['quote_asset_qty'])       
+            self.marketsConfig['pairs'][i]['fromId'] = self.tradeData['id']
 
         except Exception as e:
             print_timestamped_message('Not able to update config ', e)
@@ -389,8 +389,10 @@ def main():
                 orderId = lastTrades[j]['orderId']
                 order = apiClient.get_order(pair, orderId)
                 if order['clientOrderId'][0:3] == 'SHN':
-                    bot.calculate_new_asset_quantities(lastTrades[j], i)
-                    bot.print_new_trade(lastTrades[j])
+                    bot.get_new_trade(lastTrades[j])
+                    bot.print_new_trade()
+                    bot.calculate_new_asset_quantities(i)
+            
             bot.send_orders(configData.config, apiClient, i)
 
         configData.config = bot.marketsConfig
