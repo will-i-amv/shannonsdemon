@@ -146,10 +146,10 @@ class ShannonsDemon():
                     tickSizesFormat = '{:.7f}'
                 elif tickSize == 0.00000001:
                     tickSizesFormat = '{:.8f}'
-        self.marketsConfig['pairs'][i]['tickSizeFormat'] = tickSizesFormat
-        self.marketsConfig['pairs'][i]['stepSizeFormat'] = stepSizesFormat
-        self.marketsConfig['pairs'][i]['tickSize'] = tickSize
-        self.marketsConfig['pairs'][i]['stepSize'] = stepSize
+        self.marketsConfig['pairs'][i]['tick_size_format'] = tickSizesFormat
+        self.marketsConfig['pairs'][i]['step_size_format'] = stepSizesFormat
+        self.marketsConfig['pairs'][i]['tick_size'] = tickSize
+        self.marketsConfig['pairs'][i]['step_size'] = stepSize
 
 
     def print_new_trade(self, trade, pair):
@@ -203,9 +203,9 @@ class ShannonsDemon():
                 pair = config['pairs'][i]['market']
                 coin = float(config['pairs'][i]['base_asset_qty'])
 
-                tickSize = self.marketsConfig['pairs'][i]['tickSize']
-                tickSizeFormat = self.marketsConfig['pairs'][i]['tickSizeFormat']
-                stepSizeFormat = self.marketsConfig['pairs'][i]['stepSizeFormat']
+                tickSize = self.marketsConfig['pairs'][i]['tick_size']
+                tickSizeFormat = self.marketsConfig['pairs'][i]['tick_size_format']
+                stepSizeFormat = self.marketsConfig['pairs'][i]['step_size_format']
 
                 try:
                     prices = client.get_ticker(symbol=pair)
