@@ -124,8 +124,6 @@ class ConfigurationData():
 
 class ShannonsDemon():
     def __init__(self):
-        self.initialized = True
-        self.firstRun = True
         self.circuitBreaker = True
         self.marketsConfig = {}
         self.tradeData = {}
@@ -352,7 +350,7 @@ def main():
         time.sleep(5)
         apiClient.cancel_all_orders(pair)        
     
-    while bot.circuitBreaker and bot.initialized:
+    while bot.circuitBreaker:
 
         bot.check_special_order_status()
 
@@ -382,9 +380,7 @@ def main():
                 apiClient.order_limit_buy(buyData)
                 apiClient.order_limit_sell(sellData)
             
-            bot.firstRun = False
-            bot.SpecialOrders = False
-
+        bot.SpecialOrders = False
         configData.config = bot.marketsConfig
         configData.write_config(filename)
 
