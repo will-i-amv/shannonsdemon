@@ -19,7 +19,7 @@ class BinanceClient(Client):
     def __init__(self, publicKey, privateKey):
         self.circuitBreaker = True
         try:
-            super(BinanceClient, self).__init__(publicKey, privateKey)
+            self.client = super(BinanceClient, self).__init__(publicKey, privateKey)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO INIT CLIENT, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
@@ -27,7 +27,7 @@ class BinanceClient(Client):
 
     def get_exchange_info(self):
         try:
-            marketPairs = super(BinanceClient, self).get_exchange_info()
+            marketPairs = self.client.get_exchange_info()
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO GET MARKET INFO FROM EXCHANGE, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
@@ -36,10 +36,10 @@ class BinanceClient(Client):
 
     def cancel_all_orders(self, pair):
         try:
-            currentOrders = super(BinanceClient, self).get_open_orders(symbol=pair)
+            currentOrders = self.client.get_open_orders(symbol=pair)
             for order in currentOrders:
                 if order['clientOrderId'][0:3] == 'SHN':
-                    super(BinanceClient, self).cancel_order(symbol=pair, orderId=order['orderId'])
+                    self.client.cancel_order(symbol=pair, orderId=order['orderId'])
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO CANCEL ALL ORDERS, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
@@ -48,13 +48,13 @@ class BinanceClient(Client):
     def get_new_trades(self, pair, lastOrderId):
         newTrades = []
         try:
-            tradesTemp = super(BinanceClient, self).get_my_trades(
+            tradesTemp = self.client.get_my_trades(
                 symbol=pair,
                 limit=1000,
                 fromId=lastOrderId + 1)
             trades = sorted(tradesTemp, key=lambda k: k['id'])
             for j in range(len(trades)):
-                order = super(BinanceClient, self).get_order(
+                order = self.client.get_order(
                     symbol=trades[j]['symbol'],
                     orderId=trades[j]['orderId'])
                 if order['clientOrderId'][0:3] == 'SHN':
@@ -67,7 +67,7 @@ class BinanceClient(Client):
 
     def get_ticker(self, pair):
         try:
-            prices = super(BinanceClient, self).get_ticker(symbol=pair)
+            prices = self.client.get_ticker(symbol=pair)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO GET PRICE, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
@@ -76,7 +76,7 @@ class BinanceClient(Client):
 
     def order_limit_buy(self, buyOrderData):
         try:
-            super(BinanceClient, self).order_limit_buy(
+            self.client.order_limit_buy(
                 symbol=buyOrderData['pair'], 
                 quantity=buyOrderData['order_bid_quantity'],
                 price=buyOrderData['order_bid_price'],
@@ -88,7 +88,7 @@ class BinanceClient(Client):
 
     def order_limit_sell(self, sellOrderData):
         try:
-            super(BinanceClient, self).order_limit_sell(
+            self.client.order_limit_sell(
                 symbol=sellOrderData['pair'],
                 quantity=sellOrderData['order_ask_quantity'],
                 price=sellOrderData['order_ask_price'],
