@@ -10,6 +10,11 @@ def print_timestamped_message(message):
     print(timestamp + '    ' + message)
 
 
+def print_and_sleep(seconds):
+    print('SLEEP FOR {} SECONDS'.format(seconds))
+    time.sleep(seconds)
+
+
 class BinanceClient(Client):
     def __init__(self, publicKey, privateKey):
         try:
@@ -382,10 +387,8 @@ def main():
         configData.config = bot.marketsConfig
         configData.write_config(filename)
 
-        quoteIntervalSeconds = float(bot.marketsConfig['sleep_seconds_after_send_orders'])
-        print_timestamped_message('SLEEP FOR {} SECONDS'.format(quoteIntervalSeconds))
-        time.sleep(quoteIntervalSeconds)
-
+        print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_send_orders']))        
+        
         # Cancel orders
         lastUpdate = time.time()
         print_timestamped_message('CANCELLING ALL ORDERS')
@@ -393,10 +396,7 @@ def main():
             pair = bot.marketsConfig['pairs'][i]['market']
             apiClient.cancel_all_orders(pair)
 
-        waitIntervalSeconds = float(bot.marketsConfig['sleep_seconds_after_cancel_orders'])
-        print_timestamped_message('SLEEP FOR {} SECONDS'.format(waitIntervalSeconds))
-        time.sleep(waitIntervalSeconds)
-
+        print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_cancel_orders']))
 
 if __name__ == '__main__':
     main()
