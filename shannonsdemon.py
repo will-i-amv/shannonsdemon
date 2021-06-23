@@ -46,24 +46,24 @@ class BinanceClient(Client):
             self.circuitBreaker = False
 
 
-    def get_my_trades(self, pair, lastOrderId):
-        lastTrades = []
+    def get_new_trades(self, pair, lastOrderId):
+        newTrades = []
         try:
-            tradesTemp = super(BinanceClient, self).get_my_trades(symbol=pair, limit=1000, fromId=lastOrderId + 1)
-            lastTrades = sorted(tradesTemp, key=lambda k: k['id'])
+            tradesTemp = super(BinanceClient, self).get_my_trades(
+                symbol=pair,
+                limit=1000,
+                fromId=lastOrderId + 1)
+            trades = sorted(tradesTemp, key=lambda k: k['id'])
+            for j in range(len(trades)):
+                order = super(BinanceClient, self).get_order(
+                    trades[j]['symbol'],
+                    trades[j]['orderId'])
+                if order['clientOrderId'][0:3] == 'SHN':
+                    newTrades.append(trades[j])
         except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO GET ALL TRADES, BECAUSE: ' + e)
+            print_timestamped_message('ERROR: UNABLE TO GET NEW TRADES, BECAUSE: ' + e)
             self.circuitBreaker = False
-        return lastTrades 
-
-
-    def get_order(self, pair, id):
-        try:
-            order = super(BinanceClient, self).get_order(symbol=pair, orderId=id)
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO GET ORDER, BECAUSE: ' + e)
-            self.circuitBreaker = False
-        return order
+        return newTrades 
 
 
     def get_ticker(self, pair):
@@ -127,7 +127,7 @@ class ShannonsDemon():
     def __init__(self):
         self.circuitBreaker = True
         self.marketsConfig = {}
-        self.tradeData = {}
+        self.trades = []
         self.specialOrders = False
         self.timeConst = 1579349682.0
         self.lastRebalanceTime = time.time()
@@ -187,16 +187,6 @@ class ShannonsDemon():
         self.marketsConfig['pairs'][i]['step_size_format'] = stepSizesFormat
         self.marketsConfig['pairs'][i]['tick_size'] = tickSize
         self.marketsConfig['pairs'][i]['step_size'] = stepSize
-
-
-    def get_new_trade(self, trade):
-        self.tradeData['timestamp'] = str(time.ctime((float(trade['time']) / 1000.0)))
-        self.tradeData['operationType'] = 'buy' if trade['isBuyer'] else 'sell'
-        self.tradeData['pair'] = trade['symbol']
-        self.tradeData['price'] = '{0: <10}'.format(trade['price'])
-        self.tradeData['base_asset_qty'] = '{0: <10}'.format(trade['qty'])
-        self.tradeData['quote_asset_qty'] = '{0: <10}'.format(trade['quoteQty'])
-        self.tradeData['id'] = trade['id']
         
 
     def get_market_prices(self, prices, i):
@@ -204,19 +194,18 @@ class ShannonsDemon():
         self.marketsConfig['pairs'][i]['ask_price'] = prices['askPrice']
 
 
-    def calculate_new_asset_quantities(self, i):        
+    def calculate_new_asset_quantities(self, trade, i):        
         try:
-            if self.tradeData['operationType'] == 'buy':
-                self.marketsConfig['pairs'][i]['base_asset_qty'] += float(self.tradeData['base_asset_qty'])
-                self.marketsConfig['pairs'][i]['quote_asset_qty'] -= float(self.tradeData['quote_asset_qty'])
+            if trade['operationType'] == 'buy':
+                self.marketsConfig['pairs'][i]['base_asset_qty'] += float(trade['base_asset_qty'])
+                self.marketsConfig['pairs'][i]['quote_asset_qty'] -= float(trade['quote_asset_qty'])
             else:
-                self.marketsConfig['pairs'][i]['base_asset_qty'] -= float(self.tradeData['base_asset_qty'])
-                self.marketsConfig['pairs'][i]['quote_asset_qty'] += float(self.tradeData['quote_asset_qty'])       
-            self.marketsConfig['pairs'][i]['fromId'] = self.tradeData['id']
+                self.marketsConfig['pairs'][i]['base_asset_qty'] -= float(trade['base_asset_qty'])
+                self.marketsConfig['pairs'][i]['quote_asset_qty'] += float(trade['quote_asset_qty'])       
+            self.marketsConfig['pairs'][i]['fromId'] = trade['id']
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO CALCULATE NEW QUANTITIES, BECAUSE: ', e)
             self.circuitBreaker = False
-
 
     def calculate_order_data(self, i):
         tickSize = self.marketsConfig['pairs'][i]['tick_size']
@@ -289,14 +278,14 @@ class ShannonsDemon():
         return sellOrderData
 
 
-    def print_new_trade(self):
+    def print_new_trade(self, trade):
         print_timestamped_message(
             ' NEW EXECUTED TRADE:\n' + \
-            ' Timestamp\n: {}'.format(self.tradeData['timestamp']) + \
-            ' Operation Type\n: {}'.format(self.tradeData['operationType']) + \
-            ' Pair: {}\n'.format(self.tradeData['pair']) + \
-            ' Price: {}\n'.format(self.tradeData['price'])  + \
-            ' Quantity: {}\n'.format(self.tradeData['quantity']))
+            ' Timestamp\n: {}'.format(trade['timestamp']) + \
+            ' Operation Type\n: {}'.format(trade['operationType']) + \
+            ' Pair: {}\n'.format(trade['pair']) + \
+            ' Price: {}\n'.format(trade['price'])  + \
+            ' Quantity: {}\n'.format(trade['quantity']))
     
 
     def print_buy_order_data(self, pair, i):
@@ -368,14 +357,12 @@ def main():
             lastOrderId = bot.marketsConfig['pairs'][i]['fromId']
 
             # For each pair, update its info if there are new executed trades
-            lastTrades = apiClient.get_my_trades(pair, lastOrderId)
-            for j in range(len(lastTrades)):
-                orderId = lastTrades[j]['orderId']
-                order = apiClient.get_order(pair, orderId)
-                if order['clientOrderId'][0:3] == 'SHN':
-                    bot.get_new_trade(lastTrades[j])
-                    bot.print_new_trade()
-                    bot.calculate_new_asset_quantities(i)
+            newTrades = apiClient.get_new_trade(pair, lastOrderId)
+            for j in range(len(newTrades)):
+                if newTrades[j]['symbol'] == pair:
+                    bot.trades.append(newTrades[j])
+                    bot.print_new_trade(newTrades[j])
+                    bot.calculate_new_asset_quantities(newTrades[j])
 
             # For each pair, generate and send new buy and sell orders
             lastPrice = apiClient.get_ticker(pair)
@@ -390,7 +377,7 @@ def main():
                 apiClient.order_limit_sell(sellData)
 
         # Write updated config            
-        bot.SpecialOrders = False
+        bot.specialOrders = False
         configData.config = bot.marketsConfig
         configData.write_config(filename)
 
