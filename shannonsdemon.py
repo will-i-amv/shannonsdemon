@@ -281,36 +281,36 @@ class ShannonsDemon():
     def print_new_trade(self, trade):
         print_timestamped_message(
             ' NEW EXECUTED TRADE:\n' + \
-            ' Timestamp\n: {}'.format(trade['timestamp']) + \
-            ' Operation Type\n: {}'.format(trade['operationType']) + \
-            ' Pair: {}\n'.format(trade['pair']) + \
-            ' Price: {}\n'.format(trade['price'])  + \
-            ' Quantity: {}\n'.format(trade['quantity']))
+            ' Timestamp: {} '.format(trade['timestamp']) + \
+            ' Operation Type: {} '.format(trade['operationType']) + \
+            ' Pair: {} '.format(trade['pair']) + \
+            ' Price: {} '.format(trade['price'])  + \
+            ' Quantity: {} '.format(trade['quantity']))
     
 
     def print_buy_order_data(self, pair, i):
         print_timestamped_message(
             'SEND BUY ORDER: {}\n'.format(pair) + \
-            'Order bid price: {0: <9}\n'.format(
+            'Order bid price: {0: <9} '.format(
                 self.marketsConfig['pairs'][i]['order_bid_price']) + \
-            'Order bid quantity: {0: <8}\n'.format(
+            'Order bid quantity: {0: <8} '.format(
                 self.marketsConfig['pairs'][i]['order_bid_quantity']) + \
-            'Mid Price: {0: <9}\n'.format(
+            'Mid Price: {0: <9} '.format(
                 self.marketsConfig['pairs'][i]['mid_price']) + \
-            'Away from buy %: {}\n'.format(
+            'Away from buy %: {} '.format(
                 self.marketsConfig['pairs'][i]['away_from_buy']))
 
 
     def print_sell_order_data(self, pair, i):        
         print_timestamped_message(
             'SEND SELL ORDER: {}\n'.format(pair) + \
-            'Order ask price: {0: <9}\n'.format(
+            'Order ask price: {0: <9} '.format(
                 self.marketsConfig['pairs'][i]['order_ask_price']) + \
-            'Order ask quantity: {0: <8}\n'.format(
+            'Order ask quantity: {0: <8} '.format(
                 self.marketsConfig['pairs'][i]['order_ask_quantity']) + \
-            'Mid Price: {0: <9}\n'.format(
+            'Mid Price: {0: <9} '.format(
                 self.marketsConfig['pairs'][i]['mid_price']) + \
-            'Away from sell %: {}\n'.format(
+            'Away from sell %: {} '.format(
                 self.marketsConfig['pairs'][i]['away_from_sell']))
 
 
