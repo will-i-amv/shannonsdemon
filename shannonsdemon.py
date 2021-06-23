@@ -19,7 +19,8 @@ class BinanceClient(Client):
     def __init__(self, publicKey, privateKey):
         self.circuitBreaker = True
         try:
-            self.client = super(BinanceClient, self).__init__(publicKey, privateKey)
+            self.client = super(BinanceClient, self)
+            self.client.__init__(publicKey, privateKey)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO INIT CLIENT, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
