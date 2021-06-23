@@ -14,8 +14,8 @@ class BinanceClient(Client):
     def __init__(self, publicKey, privateKey):
         try:
             super(BinanceClient, self).__init__(publicKey, privateKey)
-        except:
-            print_timestamped_message('Not able to init client, please fix and restart: ' + e)
+        except Exception as e:
+            print_timestamped_message('ERROR: UNABLE TO INIT CLIENT, BECAUSE: ' + e)
             self.circuitBreaker = False
 
 
@@ -23,7 +23,7 @@ class BinanceClient(Client):
         try:
             marketPairs = super(BinanceClient, self).get_exchange_info()
         except Exception as e:
-            print_timestamped_message('Cannot get market info from exchange: ' + e)
+            print_timestamped_message('ERROR: UNABLE TO GET MARKET INFO FROM EXCHANGE, BECAUSE: ' + e)
             self.circuitBreaker = False
         return marketPairs['symbols']
 
@@ -36,7 +36,7 @@ class BinanceClient(Client):
                     super(BinanceClient, self).cancel_order(symbol=pair, orderId=order['orderId'])
                 time.sleep(1.05)
         except Exception as e:
-            print_timestamped_message('Cannot cancel all orders: ' + e)
+            print_timestamped_message('ERROR: UNABLE TO CANCEL ALL ORDERS, BECAUSE: ' + e)
             self.circuitBreaker = False
 
 
@@ -46,7 +46,7 @@ class BinanceClient(Client):
             tradesTemp = super(BinanceClient, self).get_my_trades(symbol=pair, limit=1000, fromId=lastOrderId + 1)
             lastTrades = sorted(tradesTemp, key=lambda k: k['id'])
         except Exception as e:
-            print_timestamped_message('Not able to get all trades: ' + e)
+            print_timestamped_message('ERROR: UNABLE TO GET ALL TRADES, BECAUSE: ' + e)
             self.circuitBreaker = False
         return lastTrades 
 
@@ -55,7 +55,7 @@ class BinanceClient(Client):
         try:
             order = super(BinanceClient, self).get_order(symbol=pair, orderId=id)
         except Exception as e:
-            print_timestamped_message('Not able to get order: ' + e)
+            print_timestamped_message('ERROR: UNABLE TO GET ORDER, BECAUSE: ' + e)
             self.circuitBreaker = False
         return order
 
@@ -64,7 +64,7 @@ class BinanceClient(Client):
         try:
             prices = super(BinanceClient, self).get_ticker(symbol=pair)
         except Exception as e:
-            print_timestamped_message('Not able to get price ' + e)
+            print_timestamped_message('ERROR: UNABLE TO GET PRICE, BECAUSE: ' + e)
             self.circuitBreaker = False
         return prices
 
@@ -77,7 +77,7 @@ class BinanceClient(Client):
                 price=buyOrderData['order_bid_price'],
                 newClientOrderId=buyOrderData['myOrderId'])
         except Exception as e:
-            print_timestamped_message('Not able to send buy order for ' + buyOrderData['pair'] + ' because: ' + e)
+            print_timestamped_message('ERROR: UNABLE TO SEND BUY ORDER FOR ' + buyOrderData['pair'] + ', BECAUSE: ' + e)
             self.circuitBreaker = False
 
 
@@ -89,7 +89,7 @@ class BinanceClient(Client):
                 price=sellOrderData['order_ask_price'],
                 newClientOrderId=sellOrderData['myOrderId'])
         except Exception as e:
-            print_timestamped_message('Not able to send sell order for ' + sellOrderData['pair'] + ' because: ' + e)
+            print_timestamped_message('ERROR: UNABLE TO SEND SELL ORDER FOR ' + sellOrderData['pair'] + ', BECAUSE: ' + e)
             self.circuitBreaker = False
 
 
@@ -104,7 +104,7 @@ class ConfigurationData():
             with open(filename) as f:
                 self.config = json.load(f)
         except Exception as e:
-            print_timestamped_message('Not able to read config file, please fix and restart: ', e)
+            print_timestamped_message('ERROR: UNABLE TO READ FROM CONFIG FILE, BECAUSE: ', e)
             self.circuitBreaker = False
 
 
@@ -113,7 +113,7 @@ class ConfigurationData():
             with open(filename, 'w') as f:
                 json.dump(self.config, f)
         except Exception as e:
-            print_timestamped_message('Cannot write to file: ', e)
+            print_timestamped_message('ERROR: UNABLE TO WRITE TO CONFIG FILE, BECAUSE: ', e)
             self.circuitBreaker = False
 
 
@@ -202,7 +202,7 @@ class ShannonsDemon():
                 self.marketsConfig['pairs'][i]['quote_asset_qty'] += float(self.tradeData['quote_asset_qty'])       
             self.marketsConfig['pairs'][i]['fromId'] = self.tradeData['id']
         except Exception as e:
-            print_timestamped_message('Not able to update config ', e)
+            print_timestamped_message('ERROR: UNABLE TO CALCULATE NEW QUANTITIES, BECAUSE: ', e)
             self.circuitBreaker = False
 
 
@@ -243,7 +243,7 @@ class ShannonsDemon():
         myAskQuantity = stepSizeFormat.format((-0.5 * (totalCoin * myaskPrice + totalCash) + totalCoin * myaskPrice)* 1.0 / myaskPrice)
         
         if float(midPrice) < 0.99 * mybidPrice or float(midPrice) > 1.01 * myaskPrice:
-            print_timestamped_message('Please inspect quantities config file as bot hits market')
+            print_timestamped_message('ERROR: THE BOT HITS MARKET, INSPECT QUANTITIES CONFIG FILE')
             self.circuitBreaker = False
         
         self.marketsConfig['pairs'][i]['mid_price'] = midPrice
@@ -278,19 +278,14 @@ class ShannonsDemon():
 
 
     def print_new_trade(self):
-        try:
-            print_timestamped_message(
-                ' NEW EXECUTED TRADE:\n' + \
-                ' Timestamp\n: {}'.format(self.tradeData['timestamp']) + \
-                ' Operation Type\n: {}'.format(self.tradeData['operationType']) + \
-                ' Pair: {}\n'.format(self.tradeData['pair']) + \
-                ' Price: {}\n'.format(self.tradeData['price'])  + \
-                ' Quantity: {}\n'.format(self.tradeData['quantity']))
+        print_timestamped_message(
+            ' NEW EXECUTED TRADE:\n' + \
+            ' Timestamp\n: {}'.format(self.tradeData['timestamp']) + \
+            ' Operation Type\n: {}'.format(self.tradeData['operationType']) + \
+            ' Pair: {}\n'.format(self.tradeData['pair']) + \
+            ' Price: {}\n'.format(self.tradeData['price'])  + \
+            ' Quantity: {}\n'.format(self.tradeData['quantity']))
     
-        except Exception as e:
-            print_timestamped_message('Not able to print trade ' + e)
-            self.circuitBreaker = False
-
 
     def print_buy_order_data(self, pair, i):
         print_timestamped_message(
