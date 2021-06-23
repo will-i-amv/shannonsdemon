@@ -56,8 +56,8 @@ class BinanceClient(Client):
             trades = sorted(tradesTemp, key=lambda k: k['id'])
             for j in range(len(trades)):
                 order = super(BinanceClient, self).get_order(
-                    trades[j]['symbol'],
-                    trades[j]['orderId'])
+                    symbol=trades[j]['symbol'],
+                    orderId=trades[j]['orderId'])
                 if order['clientOrderId'][0:3] == 'SHN':
                     newTrades.append(trades[j])
         except Exception as e:
