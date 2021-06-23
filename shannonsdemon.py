@@ -334,6 +334,11 @@ def main():
     bot = ShannonsDemon()
     configData = ConfigurationData()
     
+    circuitBreakers = configData.circuitBreaker and bot.circuitBreaker and apiClient.circuitBreaker
+    if not circuitBreakers:
+        print_timestamped_message('ERROR: UNABLE TO INIT OBJECTS')
+        return
+    
     # Read config file
     configData.read_config(filename)
     bot.marketsConfig  = configData.config
@@ -350,7 +355,7 @@ def main():
         time.sleep(5)
         apiClient.cancel_all_orders(pair)        
     
-    while bot.circuitBreaker:
+    while circuitBreakers:
 
         bot.check_special_order_status()
 
