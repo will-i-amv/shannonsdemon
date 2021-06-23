@@ -131,6 +131,14 @@ class ShannonsDemon():
         self.tradeData = {}
         self.specialOrders = False
         self.timeConst = 1579349682.0
+        self.lastRebalanceTime = time.time()
+
+
+    def check_special_order_status(self):
+        rebalanceIntervalSeconds = float(self.marketsConfig['rebalance_interval_sec'])        
+        if time.time() > self.lastRebalanceTime + rebalanceIntervalSeconds:
+            self.lastRebalanceTime = time.time()
+            self.specialOrders = True
 
 
     def get_market_parameters(self, market, i):
@@ -344,16 +352,9 @@ def main():
         time.sleep(5)
         apiClient.cancel_all_orders(pair)        
     
-    rebalanceIntervalSeconds = float(bot.marketsConfig['rebalance_interval_sec'])        
-    rebalanceUpdate = time.time() # if start with rebalance:   - rebalanceIntervalSeconds -1.0
-
     while bot.circuitBreaker and bot.initialized:
 
-        # Send orders special or normal
-        lastUpdate = time.time()
-        if time.time() > rebalanceUpdate + rebalanceIntervalSeconds and rebalanceIntervalSeconds > 0:
-            rebalanceUpdate = time.time()
-            bot.specialOrders = True
+        bot.check_special_order_status()
 
         print_timestamped_message('SENDING BUY AND SELL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
@@ -390,7 +391,6 @@ def main():
         print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_send_orders']))        
         
         # Cancel orders
-        lastUpdate = time.time()
         print_timestamped_message('CANCELLING ALL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
