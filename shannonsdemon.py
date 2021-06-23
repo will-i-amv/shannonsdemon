@@ -17,6 +17,7 @@ def print_and_sleep(seconds):
 
 class BinanceClient(Client):
     def __init__(self, publicKey, privateKey):
+        self.circuitBreaker = True
         try:
             super(BinanceClient, self).__init__(publicKey, privateKey)
         except Exception as e:
