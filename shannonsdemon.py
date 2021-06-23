@@ -40,7 +40,6 @@ class BinanceClient(Client):
             for order in currentOrders:
                 if order['clientOrderId'][0:3] == 'SHN':
                     super(BinanceClient, self).cancel_order(symbol=pair, orderId=order['orderId'])
-                time.sleep(1.05)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO CANCEL ALL ORDERS, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
@@ -344,7 +343,6 @@ def main():
         for j in range(len(binanceMarkets)):            
             if binanceMarkets[j]['symbol'] == pair:
                 bot.get_market_parameters(binanceMarkets[j], i)
-        time.sleep(5)
         apiClient.cancel_all_orders(pair)        
     
     while circuitBreakers:
