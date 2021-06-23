@@ -340,7 +340,7 @@ def main():
         print_timestamped_message('ERROR: UNABLE TO INIT OBJECTS')
         return
     
-    # Read config file
+    # Read initial config
     configData.read_config(filename)
     bot.marketsConfig  = configData.config
          
@@ -350,6 +350,8 @@ def main():
     print_timestamped_message('CANCELLING ALL ORDERS')
     for i in range(len(bot.marketsConfig['pairs'])):
         pair = bot.marketsConfig['pairs'][i]['market']
+        
+        # For each pair, get its parameters from Binance
         for j in range(len(binanceMarkets)):            
             if binanceMarkets[j]['symbol'] == pair:
                 bot.get_market_parameters(binanceMarkets[j], i)
@@ -365,6 +367,7 @@ def main():
             pair = bot.marketsConfig['pairs'][i]['market']
             lastOrderId = bot.marketsConfig['pairs'][i]['fromId']
 
+            # For each pair, update its info if there are new executed trades
             lastTrades = apiClient.get_my_trades(pair, lastOrderId)
             for j in range(len(lastTrades)):
                 orderId = lastTrades[j]['orderId']
@@ -374,6 +377,7 @@ def main():
                     bot.print_new_trade()
                     bot.calculate_new_asset_quantities(i)
 
+            # For each pair, generate and send new buy and sell orders
             lastPrice = apiClient.get_ticker(pair)
             bot.get_market_prices(lastPrice, i)            
             bot.calculate_order_data(i)
@@ -381,18 +385,17 @@ def main():
             sellData = bot.set_sell_order_data(pair, i)
             bot.print_buy_order_data(pair, i)
             bot.print_sell_order_data(pair, i)
-
             if bot.marketsConfig['state'] == 'TRADE' and bot.circuitBreaker:                
                 apiClient.order_limit_buy(buyData)
                 apiClient.order_limit_sell(sellData)
-            
+
+        # Write updated config            
         bot.SpecialOrders = False
         configData.config = bot.marketsConfig
         configData.write_config(filename)
 
         print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_send_orders']))        
         
-        # Cancel orders
         print_timestamped_message('CANCELLING ALL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
