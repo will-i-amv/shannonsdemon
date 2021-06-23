@@ -70,14 +70,12 @@ class BinanceClient(Client):
 
 
     def order_limit_buy(self, buyOrderData):
-
         try:
             super(BinanceClient, self).order_limit_buy(
                 symbol=buyOrderData['pair'], 
                 quantity=buyOrderData['order_bid_quantity'],
                 price=buyOrderData['order_bid_price'],
                 newClientOrderId=buyOrderData['myOrderId'])
-        
         except Exception as e:
             print_timestamped_message('Not able to send buy order for ' + buyOrderData['pair'] + ' because: ' + e)
             self.circuitBreaker = False
@@ -90,7 +88,6 @@ class BinanceClient(Client):
                 quantity=sellOrderData['order_ask_quantity'],
                 price=sellOrderData['order_ask_price'],
                 newClientOrderId=sellOrderData['myOrderId'])
-        
         except Exception as e:
             print_timestamped_message('Not able to send sell order for ' + sellOrderData['pair'] + ' because: ' + e)
             self.circuitBreaker = False
@@ -173,6 +170,7 @@ class ShannonsDemon():
                     tickSizesFormat = '{:.7f}'
                 elif tickSize == 0.00000001:
                     tickSizesFormat = '{:.8f}'
+        
         self.marketsConfig['pairs'][i]['tick_size_format'] = tickSizesFormat
         self.marketsConfig['pairs'][i]['step_size_format'] = stepSizesFormat
         self.marketsConfig['pairs'][i]['tick_size'] = tickSize
@@ -203,14 +201,12 @@ class ShannonsDemon():
                 self.marketsConfig['pairs'][i]['base_asset_qty'] -= float(self.tradeData['base_asset_qty'])
                 self.marketsConfig['pairs'][i]['quote_asset_qty'] += float(self.tradeData['quote_asset_qty'])       
             self.marketsConfig['pairs'][i]['fromId'] = self.tradeData['id']
-
         except Exception as e:
             print_timestamped_message('Not able to update config ', e)
             self.circuitBreaker = False
 
 
     def calculate_order_data(self, i):
-                
         tickSize = self.marketsConfig['pairs'][i]['tick_size']
         tickSizeFormat = self.marketsConfig['pairs'][i]['tick_size_format']
         stepSizeFormat = self.marketsConfig['pairs'][i]['step_size_format']        
@@ -260,10 +256,9 @@ class ShannonsDemon():
 
 
     def set_buy_order_data(self, pair, i):
-        
         buyOrderData = {}
-
         myOrderId = 'SHN-B-' + pair + '-' + str(int(time.time() - self.timeConst))        
+        
         buyOrderData['symbol'] = pair
         buyOrderData['quantity'] = self.marketsConfig['pairs'][i]['order_bid_price']
         buyOrderData['price'] = self.marketsConfig['pairs'][i]['order_bid_quantity']
@@ -272,10 +267,9 @@ class ShannonsDemon():
 
 
     def set_sell_order_data(self, pair, i):
-        
-        sellOrderData = {}
-        
+        sellOrderData = {}        
         myOrderId = 'SHN-S-' + pair + '-' + str(int(time.time() - self.timeConst))
+        
         sellOrderData['symbol'] = pair
         sellOrderData['quantity'] = self.marketsConfig['pairs'][i]['order_ask_quantity']
         sellOrderData['price'] = self.marketsConfig['pairs'][i]['order_ask_price']
@@ -367,7 +361,6 @@ def main():
             lastOrderId = bot.marketsConfig['pairs'][i]['fromId']
 
             lastTrades = apiClient.get_my_trades(pair, lastOrderId)
-
             for j in range(len(lastTrades)):
                 orderId = lastTrades[j]['orderId']
                 order = apiClient.get_order(pair, orderId)
@@ -377,7 +370,6 @@ def main():
                     bot.calculate_new_asset_quantities(i)
 
             lastPrice = apiClient.get_ticker(pair)
-
             bot.get_market_prices(lastPrice, i)            
             bot.calculate_order_data(i)
             buyData = bot.set_buy_order_data(pair, i)
@@ -401,7 +393,6 @@ def main():
 
         # Cancel orders
         lastUpdate = time.time()
-
         print_timestamped_message('CANCELLING ALL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
