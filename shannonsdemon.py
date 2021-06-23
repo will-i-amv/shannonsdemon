@@ -12,7 +12,6 @@ def print_timestamped_message(message):
 
 class BinanceClient(Client):
     def __init__(self, publicKey, privateKey):
-        self.circuitBreaker = True
         try:
             super(BinanceClient, self).__init__(publicKey, privateKey)
         except:
@@ -22,7 +21,6 @@ class BinanceClient(Client):
 
     def get_exchange_info(self):
         try:
-            self.circuitBreaker = True
             marketPairs = super(BinanceClient, self).get_exchange_info()
         except Exception as e:
             print_timestamped_message('Cannot get market info from exchange: ' + e)
@@ -32,7 +30,6 @@ class BinanceClient(Client):
 
     def cancel_all_orders(self, pair):
         try:
-            self.circuitBreaker = True
             currentOrders = super(BinanceClient, self).get_open_orders(symbol=pair)
             for order in currentOrders:
                 if order['clientOrderId'][0:3] == 'SHN':
@@ -46,7 +43,6 @@ class BinanceClient(Client):
     def get_my_trades(self, pair, lastOrderId):
         lastTrades = []
         try:
-            self.circuitBreaker = True
             tradesTemp = super(BinanceClient, self).get_my_trades(symbol=pair, limit=1000, fromId=lastOrderId + 1)
             lastTrades = sorted(tradesTemp, key=lambda k: k['id'])
         except Exception as e:
@@ -57,7 +53,6 @@ class BinanceClient(Client):
 
     def get_order(self, pair, id):
         try:
-            self.circuitBreaker = True
             order = super(BinanceClient, self).get_order(symbol=pair, orderId=id)
         except Exception as e:
             print_timestamped_message('Not able to get order: ' + e)
@@ -68,10 +63,9 @@ class BinanceClient(Client):
     def get_ticker(self, pair):
         try:
             prices = super(BinanceClient, self).get_ticker(symbol=pair)
-            self.circuitBreaker = True
         except Exception as e:
-            self.circuitBreaker = False
             print_timestamped_message('Not able to get price ' + e)
+            self.circuitBreaker = False
         return prices
 
 
@@ -86,6 +80,7 @@ class BinanceClient(Client):
         
         except Exception as e:
             print_timestamped_message('Not able to send buy order for ' + buyOrderData['pair'] + ' because: ' + e)
+            self.circuitBreaker = False
 
 
     def order_limit_sell(self, sellOrderData):
@@ -98,6 +93,7 @@ class BinanceClient(Client):
         
         except Exception as e:
             print_timestamped_message('Not able to send sell order for ' + sellOrderData['pair'] + ' because: ' + e)
+            self.circuitBreaker = False
 
 
 class ConfigurationData():
@@ -108,7 +104,6 @@ class ConfigurationData():
 
     def read_config(self, filename):
         try:
-            self.circuitBreaker = True
             with open(filename) as f:
                 self.config = json.load(f)
         except Exception as e:
