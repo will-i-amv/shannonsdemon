@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 from binance.client import Client
 import time
 import json
@@ -317,8 +318,9 @@ class ShannonsDemon():
 def main():
     
     filename = 'config.json'
-    publicKey = os.environ['PUBLIC_KEY']
-    privateKey = os.environ['PRIVATE_KEY']
+    load_dotenv()
+    publicKey = os.environ['BIN_PUB_KEY']
+    privateKey = os.environ['BIN_PRIV_KEY']
     
     apiClient = BinanceClient(publicKey, privateKey)
     bot = ShannonsDemon()
