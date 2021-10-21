@@ -27,12 +27,10 @@ class BinanceClient:
 
     def get_exchange_info(self):
         try:
-            marketPairs = self.client.get_exchange_info()
+            return self.client.get_exchange_info()['symbols']
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO GET MARKET INFO FROM EXCHANGE, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
-        return marketPairs['symbols']
-
 
     def cancel_all_orders(self, pair):
         try:
