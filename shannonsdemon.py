@@ -16,16 +16,14 @@ def print_and_sleep(seconds):
     time.sleep(seconds)
 
 
-class BinanceClient(Client):
+class BinanceClient:
     def __init__(self, publicKey, privateKey):
         self.circuitBreaker = True
         try:
-            self.client = super(BinanceClient, self)
-            self.client.__init__(publicKey, privateKey)
+            self.client = Client(publicKey, privateKey)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO INIT CLIENT, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
-
 
     def get_exchange_info(self):
         try:
