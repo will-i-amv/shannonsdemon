@@ -18,26 +18,22 @@ def print_and_sleep(seconds):
 
 class BinanceClient:
     def __init__(self, publicKey, privateKey):
-        self.circuitBreaker = True
         try:
             self.client = Client(publicKey, privateKey)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO INIT CLIENT, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
     def get_symbols(self):
         try:
-            return self.client.get_exchage_info()['symbols']
+            return self.client.get_exchange_info()['symbols']
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO GET MARKET INFO FROM EXCHANGE, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
     def get_ticker(self, pair):
         try:
             return self.client.get_ticker(symbol=pair)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO GET PRICE, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
     def get_order(self, symbol, order_id):
         return self.client.get_order(
@@ -50,7 +46,6 @@ class BinanceClient:
             return self.client.get_open_orders(symbol=pair)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO GET ORDER, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
     def cancel_order(self, pair, order_id):
         try:
@@ -60,7 +55,6 @@ class BinanceClient:
             )
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO CANCEL ORDER, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
     def cancel_open_orders(self, pair):
         for order in self.get_open_orders(pair=pair):
@@ -102,7 +96,6 @@ class BinanceClient:
             ]
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO GET NEW TRADES, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
     def send_buy_order(self, buyOrderData):
         try:
@@ -113,7 +106,6 @@ class BinanceClient:
                 newClientOrderId=buyOrderData['myOrderId'])
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO SEND BUY ORDER FOR ' + buyOrderData['pair'] + ', BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
     def send_sell_order(self, sellOrderData):
         try:
@@ -124,12 +116,10 @@ class BinanceClient:
                 newClientOrderId=sellOrderData['myOrderId'])
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO SEND SELL ORDER FOR ' + sellOrderData['pair'] + ', BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
 
 class ConfigurationData():
     def __init__(self):
-        self.circuitBreaker = True
         self.config = {}
 
 
@@ -139,7 +129,6 @@ class ConfigurationData():
                 self.config = json.load(f)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO READ FROM CONFIG FILE, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
 
     def write_config(self, filename):
@@ -148,12 +137,10 @@ class ConfigurationData():
                 json.dump(self.config, f)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO WRITE TO CONFIG FILE, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
 
 class ShannonsDemon():
     def __init__(self):
-        self.circuitBreaker = True
         self.marketsConfig = {}
         self.trades = []
         self.specialOrders = False
@@ -233,7 +220,6 @@ class ShannonsDemon():
             self.marketsConfig['pairs'][i]['fromId'] = trade['id']
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO CALCULATE NEW QUANTITIES, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
     def calculate_order_data(self, i):
         tickSize = self.marketsConfig['pairs'][i]['tick_size']
@@ -273,7 +259,6 @@ class ShannonsDemon():
         
         if float(midPrice) < 0.99 * mybidPrice or float(midPrice) > 1.01 * myaskPrice:
             print_timestamped_message('ERROR: THE BOT HITS MARKET, INSPECT QUANTITIES CONFIG FILE')
-            self.circuitBreaker = False
         
         self.marketsConfig['pairs'][i]['mid_price'] = midPrice
         self.marketsConfig['pairs'][i]['away_from_buy'] = awayFromBuy
@@ -353,11 +338,6 @@ def main():
     bot = ShannonsDemon()
     configData = ConfigurationData()
     
-    circuitBreakers = configData.circuitBreaker and bot.circuitBreaker and apiClient.circuitBreaker
-    if not circuitBreakers:
-        print_timestamped_message('ERROR: UNABLE TO INIT OBJECTS')
-        return
-    
     # Read initial config
     configData.read_config(filename)
     bot.marketsConfig  = configData.config
@@ -375,7 +355,7 @@ def main():
                 bot.get_market_parameters(binanceMarkets[j], i)
         apiClient.cancel_open_orders(pair)        
     
-    while circuitBreakers:
+    while True:
 
         bot.check_special_order_status()
 
@@ -400,7 +380,7 @@ def main():
             sellData = bot.set_sell_order_data(pair, i)
             bot.print_buy_order_data(pair, i)
             bot.print_sell_order_data(pair, i)
-            if bot.marketsConfig['state'] == 'TRADE' and bot.circuitBreaker:                
+            if bot.marketsConfig['state'] == 'TRADE':
                 apiClient.send_buy_order(buyData)
                 apiClient.send_sell_order(sellData)
 
