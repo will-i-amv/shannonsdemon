@@ -1,7 +1,9 @@
-from binance.client import Client
+import os
 import time
 import json
-import os
+import functools
+from dotenv import load_dotenv
+from binance.client import Client
 
 
 def print_timestamped_message(message):
@@ -15,95 +17,117 @@ def print_and_sleep(seconds):
     time.sleep(seconds)
 
 
-class BinanceClient(Client):
+def handle_api_errors(message):
+    def method_wrapper(method):
+        @functools.wraps(method)
+        def _handle_api_errors(self, *args, **kwargs):
+            try:
+                result = method(self, *args, **kwargs)
+            except Exception as e:
+                print(
+                    f"""
+                    ERROR: {message}.\n 
+                    REASON: {e}
+                    """
+                )
+            else:
+                return result
+        return _handle_api_errors
+    return method_wrapper
+
+
+class BinanceClient:
+    @handle_api_errors(message='UNABLE TO INIT CLIENT')
     def __init__(self, publicKey, privateKey):
-        self.circuitBreaker = True
-        try:
-            self.client = super(BinanceClient, self)
-            self.client.__init__(publicKey, privateKey)
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO INIT CLIENT, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
+        self.client = Client(publicKey, privateKey)
 
+    @handle_api_errors(message='UNABLE TO GET SYMBOLS')
+    def get_symbols(self):
+        return self.client.get_exchange_info()['symbols']
 
-    def get_exchange_info(self):
-        try:
-            marketPairs = self.client.get_exchange_info()
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO GET MARKET INFO FROM EXCHANGE, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
-        return marketPairs['symbols']
+    @handle_api_errors(message='UNABLE TO GET TICKER')
+    def get_ticker(self, pair):
+        return self.client.get_ticker(symbol=pair)
 
+    @handle_api_errors(message='UNABLE TO GET ORDER')
+    def get_order(self, symbol, order_id):
+        return self.client.get_order(
+            symbol=symbol,
+            orderId=order_id,
+        )
 
-    def cancel_all_orders(self, pair):
-        try:
-            currentOrders = self.client.get_open_orders(symbol=pair)
-            for order in currentOrders:
-                if order['clientOrderId'][0:3] == 'SHN':
-                    self.client.cancel_order(symbol=pair, orderId=order['orderId'])
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO CANCEL ALL ORDERS, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
+    @handle_api_errors(message='UNABLE TO GET OPEN ORDERS')
+    def get_open_orders(self, pair):
+        return self.client.get_open_orders(symbol=pair)
 
+    @handle_api_errors(message='UNABLE TO CANCEL ORDER')
+    def cancel_order(self, pair, order_id):
+        self.client.cancel_order(
+            symbol=pair, 
+            orderId=order_id,
+        )
+
+    def cancel_open_orders(self, pair):
+        for order in self.get_open_orders(pair=pair):
+            if order['clientOrderId'][0:3] == 'SHN':
+                self.cancel_order(
+                    pair=pair, 
+                    order_id=order['orderId'],
+                )
+
+    def is_shannon_order(self, trade):
+        order = self.get_order(
+                symbol=trade['symbol'],
+                order_id=trade['orderId']
+            )
+        return order['clientOrderId'][0:3] == 'SHN'
+
+    @handle_api_errors(message='UNABLE TO GET TRADES')
+    def get_trades(self, pair, order_id, **kwargs):
+        executed_trades = self.client.get_my_trades(
+            symbol=pair,
+            fromId=order_id + 1,
+            **kwargs
+        )
+        return sorted(
+            executed_trades,
+            key=lambda x: x['id'],
+        )
 
     def get_new_trades(self, pair, lastOrderId):
-        newTrades = []
-        try:
-            tradesTemp = self.client.get_my_trades(
-                symbol=pair,
-                limit=1000,
-                fromId=lastOrderId + 1)
-            trades = sorted(tradesTemp, key=lambda k: k['id'])
-            for j in range(len(trades)):
-                order = self.client.get_order(
-                    symbol=trades[j]['symbol'],
-                    orderId=trades[j]['orderId'])
-                if order['clientOrderId'][0:3] == 'SHN':
-                    newTrades.append(trades[j])
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO GET NEW TRADES, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
-        return newTrades 
+        trades = self.get_trades(
+            pair=pair,
+            order_id=lastOrderId,
+            limit=1000,
+        )
+        return [
+            trade
+            for trade in trades
+            if self.is_shannon_order(trade)
+        ]
 
+    @handle_api_errors(message='UNABLE TO SEND BUY ORDER')
+    def send_buy_order(self, buyOrderData):
+        self.client.order_limit_buy(
+            symbol=buyOrderData['pair'], 
+            quantity=buyOrderData['order_bid_quantity'],
+            price=buyOrderData['order_bid_price'],
+            newClientOrderId=buyOrderData['myOrderId']
+        )
 
-    def get_ticker(self, pair):
-        try:
-            prices = self.client.get_ticker(symbol=pair)
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO GET PRICE, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
-        return prices
-
-
-    def order_limit_buy(self, buyOrderData):
-        try:
-            self.client.order_limit_buy(
-                symbol=buyOrderData['pair'], 
-                quantity=buyOrderData['order_bid_quantity'],
-                price=buyOrderData['order_bid_price'],
-                newClientOrderId=buyOrderData['myOrderId'])
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO SEND BUY ORDER FOR ' + buyOrderData['pair'] + ', BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
-
-
-    def order_limit_sell(self, sellOrderData):
-        try:
-            self.client.order_limit_sell(
-                symbol=sellOrderData['pair'],
-                quantity=sellOrderData['order_ask_quantity'],
-                price=sellOrderData['order_ask_price'],
-                newClientOrderId=sellOrderData['myOrderId'])
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO SEND SELL ORDER FOR ' + sellOrderData['pair'] + ', BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
+    @handle_api_errors(message='UNABLE TO SEND SELL ORDER')
+    def send_sell_order(self, sellOrderData):
+        self.client.order_limit_sell(
+            symbol=sellOrderData['pair'],
+            quantity=sellOrderData['order_ask_quantity'],
+            price=sellOrderData['order_ask_price'],
+            newClientOrderId=sellOrderData['myOrderId']
+        )
 
 
 class ConfigurationData():
     def __init__(self):
-        self.circuitBreaker = True
         self.config = {}
-
 
     def read_config(self, filename):
         try:
@@ -111,8 +135,6 @@ class ConfigurationData():
                 self.config = json.load(f)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO READ FROM CONFIG FILE, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
-
 
     def write_config(self, filename):
         try:
@@ -120,25 +142,21 @@ class ConfigurationData():
                 json.dump(self.config, f)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO WRITE TO CONFIG FILE, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
 
 class ShannonsDemon():
     def __init__(self):
-        self.circuitBreaker = True
         self.marketsConfig = {}
         self.trades = []
         self.specialOrders = False
         self.timeConst = 1579349682.0
         self.lastRebalanceTime = time.time()
 
-
     def check_special_order_status(self):
         rebalanceIntervalSeconds = float(self.marketsConfig['rebalance_interval_sec'])        
         if time.time() > self.lastRebalanceTime + rebalanceIntervalSeconds:
             self.lastRebalanceTime = time.time()
             self.specialOrders = True
-
 
     def get_market_parameters(self, market, i):
         for marketFilter in market['filters']:
@@ -181,18 +199,15 @@ class ShannonsDemon():
                 elif tickSize == 0.0000001:
                     tickSizesFormat = '{:.7f}'
                 elif tickSize == 0.00000001:
-                    tickSizesFormat = '{:.8f}'
-        
+                    tickSizesFormat = '{:.8f}'        
         self.marketsConfig['pairs'][i]['tick_size_format'] = tickSizesFormat
         self.marketsConfig['pairs'][i]['step_size_format'] = stepSizesFormat
         self.marketsConfig['pairs'][i]['tick_size'] = tickSize
         self.marketsConfig['pairs'][i]['step_size'] = stepSize
         
-
     def get_market_prices(self, prices, i):
         self.marketsConfig['pairs'][i]['bid_price'] = prices['bidPrice']
         self.marketsConfig['pairs'][i]['ask_price'] = prices['askPrice']
-
 
     def calculate_new_asset_quantities(self, trade, i):        
         try:
@@ -205,7 +220,6 @@ class ShannonsDemon():
             self.marketsConfig['pairs'][i]['fromId'] = trade['id']
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO CALCULATE NEW QUANTITIES, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
 
     def calculate_order_data(self, i):
         tickSize = self.marketsConfig['pairs'][i]['tick_size']
@@ -217,13 +231,11 @@ class ShannonsDemon():
         askPrice = float(self.marketsConfig['pairs'][i]['ask_price'])
         buyPercentage = float(self.marketsConfig['pairs'][i]['buy_percentage'])
         sellPercentage = float(self.marketsConfig['pairs'][i]['sell_percentage'])
-
         fairPrice = totalCash / totalCoin
         midPrice = tickSizeFormat.format(0.5 * (bidPrice + askPrice))
         awayFromBuy = '{:.1f}'.format(100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
         awayFromSell = '{:.1f}'.format(100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
-        awayFromMidPrice = (float(midPrice) - fairPrice) / fairPrice
-        
+        awayFromMidPrice = (float(midPrice) - fairPrice) / fairPrice        
         if self.specialOrders:
             if float(awayFromMidPrice) >= 0.05:
                 bidPercentage = min(0.95, buyPercentage)
@@ -237,16 +249,12 @@ class ShannonsDemon():
         else:
             bidPercentage = min(0.95, buyPercentage)
             askPercentage = max(1.05, sellPercentage)
-            
         mybidPrice = bidPercentage * fairPrice
         myaskPrice = askPercentage * fairPrice
         myBidQuantity = stepSizeFormat.format((0.5 * (totalCoin * mybidPrice + totalCash) - totalCoin * mybidPrice)* 1.0 / mybidPrice)
         myAskQuantity = stepSizeFormat.format((-0.5 * (totalCoin * myaskPrice + totalCash) + totalCoin * myaskPrice)* 1.0 / myaskPrice)
-        
         if float(midPrice) < 0.99 * mybidPrice or float(midPrice) > 1.01 * myaskPrice:
-            print_timestamped_message('ERROR: THE BOT HITS MARKET, INSPECT QUANTITIES CONFIG FILE')
-            self.circuitBreaker = False
-        
+            print_timestamped_message('ERROR: THE BOT HITS MARKET, INSPECT QUANTITIES CONFIG FILE')        
         self.marketsConfig['pairs'][i]['mid_price'] = midPrice
         self.marketsConfig['pairs'][i]['away_from_buy'] = awayFromBuy
         self.marketsConfig['pairs'][i]['away_from_sell'] = awayFromSell
@@ -255,28 +263,23 @@ class ShannonsDemon():
         self.marketsConfig['pairs'][i]['order_ask_price'] = tickSizeFormat.format(max(myaskPrice, askPrice - tickSize))
         self.marketsConfig['pairs'][i]['order_ask_quantity'] = myAskQuantity
 
-
     def set_buy_order_data(self, pair, i):
         buyOrderData = {}
-        myOrderId = 'SHN-B-' + pair + '-' + str(int(time.time() - self.timeConst))        
-        
+        myOrderId = 'SHN-B-' + pair + '-' + str(int(time.time() - self.timeConst))                
         buyOrderData['symbol'] = pair
         buyOrderData['quantity'] = self.marketsConfig['pairs'][i]['order_bid_price']
         buyOrderData['price'] = self.marketsConfig['pairs'][i]['order_bid_quantity']
         buyOrderData['newClientOrderId'] = myOrderId
         return buyOrderData
 
-
     def set_sell_order_data(self, pair, i):
         sellOrderData = {}        
-        myOrderId = 'SHN-S-' + pair + '-' + str(int(time.time() - self.timeConst))
-        
+        myOrderId = 'SHN-S-' + pair + '-' + str(int(time.time() - self.timeConst))        
         sellOrderData['symbol'] = pair
         sellOrderData['quantity'] = self.marketsConfig['pairs'][i]['order_ask_quantity']
         sellOrderData['price'] = self.marketsConfig['pairs'][i]['order_ask_price']
         sellOrderData['newClientOrderId'] = myOrderId
         return sellOrderData
-
 
     def print_new_trade(self, trade):
         print_timestamped_message(
@@ -287,7 +290,6 @@ class ShannonsDemon():
             ' Price: {} '.format(trade['price'])  + \
             ' Quantity: {} '.format(trade['quantity']))
     
-
     def print_buy_order_data(self, pair, i):
         print_timestamped_message(
             'SEND BUY ORDER: {}\n'.format(pair) + \
@@ -299,7 +301,6 @@ class ShannonsDemon():
                 self.marketsConfig['pairs'][i]['mid_price']) + \
             'Away from buy %: {} '.format(
                 self.marketsConfig['pairs'][i]['away_from_buy']))
-
 
     def print_sell_order_data(self, pair, i):        
         print_timestamped_message(
@@ -314,80 +315,57 @@ class ShannonsDemon():
                 self.marketsConfig['pairs'][i]['away_from_sell']))
 
 
-def main():
-    
+def main():    
     filename = 'config.json'
-    publicKey = os.environ['PUBLIC_KEY']
-    privateKey = os.environ['PRIVATE_KEY']
-    
+    load_dotenv()
+    publicKey = os.environ['BIN_PUB_KEY']
+    privateKey = os.environ['BIN_PRIV_KEY']
     apiClient = BinanceClient(publicKey, privateKey)
     bot = ShannonsDemon()
     configData = ConfigurationData()
-    
-    circuitBreakers = configData.circuitBreaker and bot.circuitBreaker and apiClient.circuitBreaker
-    if not circuitBreakers:
-        print_timestamped_message('ERROR: UNABLE TO INIT OBJECTS')
-        return
-    
-    # Read initial config
-    configData.read_config(filename)
+    configData.read_config(filename) # Read initial config
     bot.marketsConfig  = configData.config
-         
     print_timestamped_message('INITIALIZING')
-    binanceMarkets = apiClient.get_exchange_info()
-    
+    binanceMarkets = apiClient.get_symbols()
     print_timestamped_message('CANCELLING ALL ORDERS')
     for i in range(len(bot.marketsConfig['pairs'])):
-        pair = bot.marketsConfig['pairs'][i]['market']
-        
-        # For each pair, get its parameters from Binance
-        for j in range(len(binanceMarkets)):            
+        pair = bot.marketsConfig['pairs'][i]['market']        
+        for j in range(len(binanceMarkets)):# For each pair, get its parameters from Binance
             if binanceMarkets[j]['symbol'] == pair:
                 bot.get_market_parameters(binanceMarkets[j], i)
-        apiClient.cancel_all_orders(pair)        
-    
-    while circuitBreakers:
-
+        apiClient.cancel_open_orders(pair)        
+    while True:
         bot.check_special_order_status()
-
         print_timestamped_message('SENDING BUY AND SELL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
             lastOrderId = bot.marketsConfig['pairs'][i]['fromId']
-
-            # For each pair, update its info if there are new executed trades
-            newTrades = apiClient.get_new_trade(pair, lastOrderId)
-            for j in range(len(newTrades)):
+            newTrades = apiClient.get_new_trades(pair, lastOrderId) 
+            for j in range(len(newTrades)): # For each pair, update its info if there are new executed trades
                 if newTrades[j]['symbol'] == pair:
                     bot.trades.append(newTrades[j])
                     bot.print_new_trade(newTrades[j])
-                    bot.calculate_new_asset_quantities(newTrades[j])
-
-            # For each pair, generate and send new buy and sell orders
-            lastPrice = apiClient.get_ticker(pair)
+                    bot.calculate_new_asset_quantities(newTrades[j])            
+            lastPrice = apiClient.get_ticker(pair) # For each pair, generate and send new buy and sell orders
             bot.get_market_prices(lastPrice, i)            
             bot.calculate_order_data(i)
             buyData = bot.set_buy_order_data(pair, i)
             sellData = bot.set_sell_order_data(pair, i)
             bot.print_buy_order_data(pair, i)
             bot.print_sell_order_data(pair, i)
-            if bot.marketsConfig['state'] == 'TRADE' and bot.circuitBreaker:                
-                apiClient.order_limit_buy(buyData)
-                apiClient.order_limit_sell(sellData)
-
-        # Write updated config            
+            if bot.marketsConfig['state'] == 'TRADE':
+                apiClient.send_buy_order(buyData)
+                apiClient.send_sell_order(sellData)
         bot.specialOrders = False
-        configData.config = bot.marketsConfig
+        configData.config = bot.marketsConfig # Write updated config            
         configData.write_config(filename)
-
         print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_send_orders']))        
-        
         print_timestamped_message('CANCELLING ALL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
-            apiClient.cancel_all_orders(pair)
-
+            apiClient.cancel_open_orders(pair)
         print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_cancel_orders']))
+
 
 if __name__ == '__main__':
     main()
