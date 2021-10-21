@@ -25,9 +25,9 @@ class BinanceClient:
             print_timestamped_message('ERROR: UNABLE TO INIT CLIENT, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
 
-    def get_exchange_info(self):
+    def get_symbols(self):
         try:
-            return self.client.get_exchange_info()['symbols']
+            return self.client.get_exchage_info()['symbols']
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO GET MARKET INFO FROM EXCHANGE, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
@@ -62,7 +62,7 @@ class BinanceClient:
             print_timestamped_message('ERROR: UNABLE TO CANCEL ORDER, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
 
-    def cancel_pending_orders(self, pair):
+    def cancel_open_orders(self, pair):
         for order in self.get_open_orders(pair=pair):
             if order['clientOrderId'][0:3] == 'SHN':
                 self.cancel_order(
@@ -104,7 +104,7 @@ class BinanceClient:
             print_timestamped_message('ERROR: UNABLE TO GET NEW TRADES, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
 
-    def order_limit_buy(self, buyOrderData):
+    def send_buy_order(self, buyOrderData):
         try:
             self.client.order_limit_buy(
                 symbol=buyOrderData['pair'], 
@@ -115,7 +115,7 @@ class BinanceClient:
             print_timestamped_message('ERROR: UNABLE TO SEND BUY ORDER FOR ' + buyOrderData['pair'] + ', BECAUSE: {}'.format(e))
             self.circuitBreaker = False
 
-    def order_limit_sell(self, sellOrderData):
+    def send_sell_order(self, sellOrderData):
         try:
             self.client.order_limit_sell(
                 symbol=sellOrderData['pair'],
@@ -363,7 +363,7 @@ def main():
     bot.marketsConfig  = configData.config
          
     print_timestamped_message('INITIALIZING')
-    binanceMarkets = apiClient.get_exchange_info()
+    binanceMarkets = apiClient.get_symbols()
     
     print_timestamped_message('CANCELLING ALL ORDERS')
     for i in range(len(bot.marketsConfig['pairs'])):
@@ -373,7 +373,7 @@ def main():
         for j in range(len(binanceMarkets)):            
             if binanceMarkets[j]['symbol'] == pair:
                 bot.get_market_parameters(binanceMarkets[j], i)
-        apiClient.cancel_pending_orders(pair)        
+        apiClient.cancel_open_orders(pair)        
     
     while circuitBreakers:
 
@@ -401,8 +401,8 @@ def main():
             bot.print_buy_order_data(pair, i)
             bot.print_sell_order_data(pair, i)
             if bot.marketsConfig['state'] == 'TRADE' and bot.circuitBreaker:                
-                apiClient.order_limit_buy(buyData)
-                apiClient.order_limit_sell(sellData)
+                apiClient.send_buy_order(buyData)
+                apiClient.send_sell_order(sellData)
 
         # Write updated config            
         bot.specialOrders = False
@@ -414,7 +414,7 @@ def main():
         print_timestamped_message('CANCELLING ALL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
-            apiClient.cancel_pending_orders(pair)
+            apiClient.cancel_open_orders(pair)
 
         print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_cancel_orders']))
 
