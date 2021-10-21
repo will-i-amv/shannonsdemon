@@ -57,24 +57,45 @@ class BinanceClient:
                     order_id=order['orderId'],
                 )
 
+    def get_order(self, symbol, order_id):
+        return self.client.get_order(
+            symbol=symbol,
+            orderId=order_id,
+        )
+
+    def get_trades(self, pair, order_id, **kwargs):
+        executed_trades = self.client.get_my_trades(
+            symbol=pair,
+            fromId=order_id + 1,
+            **kwargs
+        )
+        return sorted(
+            executed_trades,
+            key=lambda x: x['id'],
+        )
+
+    def is_shannon_order(self, trade):
+        order = self.get_order(
+                symbol=trade['symbol'],
+                order_id=trade['orderId']
+            )
+        return order['clientOrderId'][0:3] == 'SHN'
+
     def get_new_trades(self, pair, lastOrderId):
-        newTrades = []
         try:
-            tradesTemp = self.client.get_my_trades(
-                symbol=pair,
+            trades = self.get_trades(
+                pair=pair,
+                order_id=lastOrderId,
                 limit=1000,
-                fromId=lastOrderId + 1)
-            trades = sorted(tradesTemp, key=lambda k: k['id'])
-            for j in range(len(trades)):
-                order = self.client.get_order(
-                    symbol=trades[j]['symbol'],
-                    orderId=trades[j]['orderId'])
-                if order['clientOrderId'][0:3] == 'SHN':
-                    newTrades.append(trades[j])
+            )
+            return [
+                trade
+                for trade in trades
+                if self.is_shannon_order(trade)
+            ]
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO GET NEW TRADES, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
-        return newTrades 
 
     def get_ticker(self, pair):
         try:
