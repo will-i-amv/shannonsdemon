@@ -1,8 +1,9 @@
-from dotenv import load_dotenv
-from binance.client import Client
+import os
 import time
 import json
-import os
+import functools
+from dotenv import load_dotenv
+from binance.client import Client
 
 
 def print_timestamped_message(message):
@@ -16,45 +17,55 @@ def print_and_sleep(seconds):
     time.sleep(seconds)
 
 
+def handle_api_errors(message):
+    def method_wrapper(method):
+        @functools.wraps(method)
+        def _handle_api_errors(self, *args, **kwargs):
+            try:
+                result = method(self, *args, **kwargs)
+            except Exception as e:
+                print(
+                    f"""
+                    ERROR: {message}.\n 
+                    REASON: {e}
+                    """
+                )
+            else:
+                return result
+        return _handle_api_errors
+    return method_wrapper
+
+
 class BinanceClient:
+    @handle_api_errors(message='UNABLE TO INIT CLIENT')
     def __init__(self, publicKey, privateKey):
-        try:
-            self.client = Client(publicKey, privateKey)
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO INIT CLIENT, BECAUSE: {}'.format(e))
+        self.client = Client(publicKey, privateKey)
 
+    @handle_api_errors(message='UNABLE TO GET SYMBOLS')
     def get_symbols(self):
-        try:
-            return self.client.get_exchange_info()['symbols']
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO GET MARKET INFO FROM EXCHANGE, BECAUSE: {}'.format(e))
+        return self.client.get_exchange_info()['symbols']
 
+    @handle_api_errors(message='UNABLE TO GET TICKER')
     def get_ticker(self, pair):
-        try:
-            return self.client.get_ticker(symbol=pair)
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO GET PRICE, BECAUSE: {}'.format(e))
+        return self.client.get_ticker(symbol=pair)
 
+    @handle_api_errors(message='UNABLE TO GET ORDER')
     def get_order(self, symbol, order_id):
         return self.client.get_order(
             symbol=symbol,
             orderId=order_id,
         )
 
+    @handle_api_errors(message='UNABLE TO GET OPEN ORDERS')
     def get_open_orders(self, pair):
-        try:
-            return self.client.get_open_orders(symbol=pair)
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO GET ORDER, BECAUSE: {}'.format(e))
+        return self.client.get_open_orders(symbol=pair)
 
+    @handle_api_errors(message='UNABLE TO CANCEL ORDER')
     def cancel_order(self, pair, order_id):
-        try:
-            self.client.cancel_order(
-                symbol=pair, 
-                orderId=order_id,
-            )
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO CANCEL ORDER, BECAUSE: {}'.format(e))
+        self.client.cancel_order(
+            symbol=pair, 
+            orderId=order_id,
+        )
 
     def cancel_open_orders(self, pair):
         for order in self.get_open_orders(pair=pair):
@@ -71,6 +82,7 @@ class BinanceClient:
             )
         return order['clientOrderId'][0:3] == 'SHN'
 
+    @handle_api_errors(message='UNABLE TO GET TRADES')
     def get_trades(self, pair, order_id, **kwargs):
         executed_trades = self.client.get_my_trades(
             symbol=pair,
@@ -83,39 +95,34 @@ class BinanceClient:
         )
 
     def get_new_trades(self, pair, lastOrderId):
-        try:
-            trades = self.get_trades(
-                pair=pair,
-                order_id=lastOrderId,
-                limit=1000,
-            )
-            return [
-                trade
-                for trade in trades
-                if self.is_shannon_order(trade)
-            ]
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO GET NEW TRADES, BECAUSE: {}'.format(e))
+        trades = self.get_trades(
+            pair=pair,
+            order_id=lastOrderId,
+            limit=1000,
+        )
+        return [
+            trade
+            for trade in trades
+            if self.is_shannon_order(trade)
+        ]
 
+    @handle_api_errors(message='UNABLE TO SEND BUY ORDER')
     def send_buy_order(self, buyOrderData):
-        try:
-            self.client.order_limit_buy(
-                symbol=buyOrderData['pair'], 
-                quantity=buyOrderData['order_bid_quantity'],
-                price=buyOrderData['order_bid_price'],
-                newClientOrderId=buyOrderData['myOrderId'])
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO SEND BUY ORDER FOR ' + buyOrderData['pair'] + ', BECAUSE: {}'.format(e))
+        self.client.order_limit_buy(
+            symbol=buyOrderData['pair'], 
+            quantity=buyOrderData['order_bid_quantity'],
+            price=buyOrderData['order_bid_price'],
+            newClientOrderId=buyOrderData['myOrderId']
+        )
 
+    @handle_api_errors(message='UNABLE TO SEND SELL ORDER')
     def send_sell_order(self, sellOrderData):
-        try:
-            self.client.order_limit_sell(
-                symbol=sellOrderData['pair'],
-                quantity=sellOrderData['order_ask_quantity'],
-                price=sellOrderData['order_ask_price'],
-                newClientOrderId=sellOrderData['myOrderId'])
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO SEND SELL ORDER FOR ' + sellOrderData['pair'] + ', BECAUSE: {}'.format(e))
+        self.client.order_limit_sell(
+            symbol=sellOrderData['pair'],
+            quantity=sellOrderData['order_ask_quantity'],
+            price=sellOrderData['order_ask_price'],
+            newClientOrderId=sellOrderData['myOrderId']
+        )
 
 
 class ConfigurationData():
