@@ -358,7 +358,7 @@ def main():
             lastOrderId = bot.marketsConfig['pairs'][i]['fromId']
 
             # For each pair, update its info if there are new executed trades
-            newTrades = apiClient.get_new_trade(pair, lastOrderId)
+            newTrades = apiClient.get_new_trades(pair, lastOrderId)
             for j in range(len(newTrades)):
                 if newTrades[j]['symbol'] == pair:
                     bot.trades.append(newTrades[j])
