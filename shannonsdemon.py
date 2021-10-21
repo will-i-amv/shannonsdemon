@@ -32,6 +32,19 @@ class BinanceClient:
             print_timestamped_message('ERROR: UNABLE TO GET MARKET INFO FROM EXCHANGE, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
 
+    def get_ticker(self, pair):
+        try:
+            return self.client.get_ticker(symbol=pair)
+        except Exception as e:
+            print_timestamped_message('ERROR: UNABLE TO GET PRICE, BECAUSE: {}'.format(e))
+            self.circuitBreaker = False
+
+    def get_order(self, symbol, order_id):
+        return self.client.get_order(
+            symbol=symbol,
+            orderId=order_id,
+        )
+
     def get_open_orders(self, pair):
         try:
             return self.client.get_open_orders(symbol=pair)
@@ -57,11 +70,12 @@ class BinanceClient:
                     order_id=order['orderId'],
                 )
 
-    def get_order(self, symbol, order_id):
-        return self.client.get_order(
-            symbol=symbol,
-            orderId=order_id,
-        )
+    def is_shannon_order(self, trade):
+        order = self.get_order(
+                symbol=trade['symbol'],
+                order_id=trade['orderId']
+            )
+        return order['clientOrderId'][0:3] == 'SHN'
 
     def get_trades(self, pair, order_id, **kwargs):
         executed_trades = self.client.get_my_trades(
@@ -73,13 +87,6 @@ class BinanceClient:
             executed_trades,
             key=lambda x: x['id'],
         )
-
-    def is_shannon_order(self, trade):
-        order = self.get_order(
-                symbol=trade['symbol'],
-                order_id=trade['orderId']
-            )
-        return order['clientOrderId'][0:3] == 'SHN'
 
     def get_new_trades(self, pair, lastOrderId):
         try:
@@ -97,13 +104,6 @@ class BinanceClient:
             print_timestamped_message('ERROR: UNABLE TO GET NEW TRADES, BECAUSE: {}'.format(e))
             self.circuitBreaker = False
 
-    def get_ticker(self, pair):
-        try:
-            return self.client.get_ticker(symbol=pair)
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO GET PRICE, BECAUSE: {}'.format(e))
-            self.circuitBreaker = False
-
     def order_limit_buy(self, buyOrderData):
         try:
             self.client.order_limit_buy(
@@ -114,7 +114,6 @@ class BinanceClient:
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO SEND BUY ORDER FOR ' + buyOrderData['pair'] + ', BECAUSE: {}'.format(e))
             self.circuitBreaker = False
-
 
     def order_limit_sell(self, sellOrderData):
         try:
