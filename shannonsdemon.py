@@ -129,14 +129,12 @@ class ConfigurationData():
     def __init__(self):
         self.config = {}
 
-
     def read_config(self, filename):
         try:
             with open(filename) as f:
                 self.config = json.load(f)
         except Exception as e:
             print_timestamped_message('ERROR: UNABLE TO READ FROM CONFIG FILE, BECAUSE: {}'.format(e))
-
 
     def write_config(self, filename):
         try:
@@ -154,13 +152,11 @@ class ShannonsDemon():
         self.timeConst = 1579349682.0
         self.lastRebalanceTime = time.time()
 
-
     def check_special_order_status(self):
         rebalanceIntervalSeconds = float(self.marketsConfig['rebalance_interval_sec'])        
         if time.time() > self.lastRebalanceTime + rebalanceIntervalSeconds:
             self.lastRebalanceTime = time.time()
             self.specialOrders = True
-
 
     def get_market_parameters(self, market, i):
         for marketFilter in market['filters']:
@@ -203,18 +199,15 @@ class ShannonsDemon():
                 elif tickSize == 0.0000001:
                     tickSizesFormat = '{:.7f}'
                 elif tickSize == 0.00000001:
-                    tickSizesFormat = '{:.8f}'
-        
+                    tickSizesFormat = '{:.8f}'        
         self.marketsConfig['pairs'][i]['tick_size_format'] = tickSizesFormat
         self.marketsConfig['pairs'][i]['step_size_format'] = stepSizesFormat
         self.marketsConfig['pairs'][i]['tick_size'] = tickSize
         self.marketsConfig['pairs'][i]['step_size'] = stepSize
         
-
     def get_market_prices(self, prices, i):
         self.marketsConfig['pairs'][i]['bid_price'] = prices['bidPrice']
         self.marketsConfig['pairs'][i]['ask_price'] = prices['askPrice']
-
 
     def calculate_new_asset_quantities(self, trade, i):        
         try:
@@ -238,13 +231,11 @@ class ShannonsDemon():
         askPrice = float(self.marketsConfig['pairs'][i]['ask_price'])
         buyPercentage = float(self.marketsConfig['pairs'][i]['buy_percentage'])
         sellPercentage = float(self.marketsConfig['pairs'][i]['sell_percentage'])
-
         fairPrice = totalCash / totalCoin
         midPrice = tickSizeFormat.format(0.5 * (bidPrice + askPrice))
         awayFromBuy = '{:.1f}'.format(100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
         awayFromSell = '{:.1f}'.format(100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
-        awayFromMidPrice = (float(midPrice) - fairPrice) / fairPrice
-        
+        awayFromMidPrice = (float(midPrice) - fairPrice) / fairPrice        
         if self.specialOrders:
             if float(awayFromMidPrice) >= 0.05:
                 bidPercentage = min(0.95, buyPercentage)
@@ -258,15 +249,12 @@ class ShannonsDemon():
         else:
             bidPercentage = min(0.95, buyPercentage)
             askPercentage = max(1.05, sellPercentage)
-            
         mybidPrice = bidPercentage * fairPrice
         myaskPrice = askPercentage * fairPrice
         myBidQuantity = stepSizeFormat.format((0.5 * (totalCoin * mybidPrice + totalCash) - totalCoin * mybidPrice)* 1.0 / mybidPrice)
         myAskQuantity = stepSizeFormat.format((-0.5 * (totalCoin * myaskPrice + totalCash) + totalCoin * myaskPrice)* 1.0 / myaskPrice)
-        
         if float(midPrice) < 0.99 * mybidPrice or float(midPrice) > 1.01 * myaskPrice:
-            print_timestamped_message('ERROR: THE BOT HITS MARKET, INSPECT QUANTITIES CONFIG FILE')
-        
+            print_timestamped_message('ERROR: THE BOT HITS MARKET, INSPECT QUANTITIES CONFIG FILE')        
         self.marketsConfig['pairs'][i]['mid_price'] = midPrice
         self.marketsConfig['pairs'][i]['away_from_buy'] = awayFromBuy
         self.marketsConfig['pairs'][i]['away_from_sell'] = awayFromSell
@@ -275,28 +263,23 @@ class ShannonsDemon():
         self.marketsConfig['pairs'][i]['order_ask_price'] = tickSizeFormat.format(max(myaskPrice, askPrice - tickSize))
         self.marketsConfig['pairs'][i]['order_ask_quantity'] = myAskQuantity
 
-
     def set_buy_order_data(self, pair, i):
         buyOrderData = {}
-        myOrderId = 'SHN-B-' + pair + '-' + str(int(time.time() - self.timeConst))        
-        
+        myOrderId = 'SHN-B-' + pair + '-' + str(int(time.time() - self.timeConst))                
         buyOrderData['symbol'] = pair
         buyOrderData['quantity'] = self.marketsConfig['pairs'][i]['order_bid_price']
         buyOrderData['price'] = self.marketsConfig['pairs'][i]['order_bid_quantity']
         buyOrderData['newClientOrderId'] = myOrderId
         return buyOrderData
 
-
     def set_sell_order_data(self, pair, i):
         sellOrderData = {}        
-        myOrderId = 'SHN-S-' + pair + '-' + str(int(time.time() - self.timeConst))
-        
+        myOrderId = 'SHN-S-' + pair + '-' + str(int(time.time() - self.timeConst))        
         sellOrderData['symbol'] = pair
         sellOrderData['quantity'] = self.marketsConfig['pairs'][i]['order_ask_quantity']
         sellOrderData['price'] = self.marketsConfig['pairs'][i]['order_ask_price']
         sellOrderData['newClientOrderId'] = myOrderId
         return sellOrderData
-
 
     def print_new_trade(self, trade):
         print_timestamped_message(
@@ -307,7 +290,6 @@ class ShannonsDemon():
             ' Price: {} '.format(trade['price'])  + \
             ' Quantity: {} '.format(trade['quantity']))
     
-
     def print_buy_order_data(self, pair, i):
         print_timestamped_message(
             'SEND BUY ORDER: {}\n'.format(pair) + \
@@ -319,7 +301,6 @@ class ShannonsDemon():
                 self.marketsConfig['pairs'][i]['mid_price']) + \
             'Away from buy %: {} '.format(
                 self.marketsConfig['pairs'][i]['away_from_buy']))
-
 
     def print_sell_order_data(self, pair, i):        
         print_timestamped_message(
@@ -334,53 +315,38 @@ class ShannonsDemon():
                 self.marketsConfig['pairs'][i]['away_from_sell']))
 
 
-def main():
-    
+def main():    
     filename = 'config.json'
     load_dotenv()
     publicKey = os.environ['BIN_PUB_KEY']
     privateKey = os.environ['BIN_PRIV_KEY']
-    
     apiClient = BinanceClient(publicKey, privateKey)
     bot = ShannonsDemon()
     configData = ConfigurationData()
-    
-    # Read initial config
-    configData.read_config(filename)
+    configData.read_config(filename) # Read initial config
     bot.marketsConfig  = configData.config
-         
     print_timestamped_message('INITIALIZING')
     binanceMarkets = apiClient.get_symbols()
-    
     print_timestamped_message('CANCELLING ALL ORDERS')
     for i in range(len(bot.marketsConfig['pairs'])):
-        pair = bot.marketsConfig['pairs'][i]['market']
-        
-        # For each pair, get its parameters from Binance
-        for j in range(len(binanceMarkets)):            
+        pair = bot.marketsConfig['pairs'][i]['market']        
+        for j in range(len(binanceMarkets)):# For each pair, get its parameters from Binance
             if binanceMarkets[j]['symbol'] == pair:
                 bot.get_market_parameters(binanceMarkets[j], i)
         apiClient.cancel_open_orders(pair)        
-    
     while True:
-
         bot.check_special_order_status()
-
         print_timestamped_message('SENDING BUY AND SELL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
             lastOrderId = bot.marketsConfig['pairs'][i]['fromId']
-
-            # For each pair, update its info if there are new executed trades
-            newTrades = apiClient.get_new_trades(pair, lastOrderId)
-            for j in range(len(newTrades)):
+            newTrades = apiClient.get_new_trades(pair, lastOrderId) 
+            for j in range(len(newTrades)): # For each pair, update its info if there are new executed trades
                 if newTrades[j]['symbol'] == pair:
                     bot.trades.append(newTrades[j])
                     bot.print_new_trade(newTrades[j])
-                    bot.calculate_new_asset_quantities(newTrades[j])
-
-            # For each pair, generate and send new buy and sell orders
-            lastPrice = apiClient.get_ticker(pair)
+                    bot.calculate_new_asset_quantities(newTrades[j])            
+            lastPrice = apiClient.get_ticker(pair) # For each pair, generate and send new buy and sell orders
             bot.get_market_prices(lastPrice, i)            
             bot.calculate_order_data(i)
             buyData = bot.set_buy_order_data(pair, i)
@@ -390,20 +356,16 @@ def main():
             if bot.marketsConfig['state'] == 'TRADE':
                 apiClient.send_buy_order(buyData)
                 apiClient.send_sell_order(sellData)
-
-        # Write updated config            
         bot.specialOrders = False
-        configData.config = bot.marketsConfig
+        configData.config = bot.marketsConfig # Write updated config            
         configData.write_config(filename)
-
         print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_send_orders']))        
-        
         print_timestamped_message('CANCELLING ALL ORDERS')
         for i in range(len(bot.marketsConfig['pairs'])):
             pair = bot.marketsConfig['pairs'][i]['market']
             apiClient.cancel_open_orders(pair)
-
         print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_cancel_orders']))
+
 
 if __name__ == '__main__':
     main()
