@@ -235,10 +235,6 @@ class ShannonsDemon():
             'tick_size': tickSize,
         }
 
-    def get_market_prices(self, prices, i):
-        self.marketsConfig['pairs'][i]['bid_price'] = prices['bidPrice']
-        self.marketsConfig['pairs'][i]['ask_price'] = prices['askPrice']
-
     def calculate_new_asset_quantities(self, pair, trade):
         new_quantity = {}
         if trade['operationType'] == 'buy':
