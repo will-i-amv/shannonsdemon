@@ -252,12 +252,17 @@ class Analyzer:
         return sellOrderData
 
 
-class ShannonsDemon():
-    def __init__(self):
+class ShannonsDemon:
+    def __init__(self, publicKey, privateKey):
         self.marketsConfig = {}
         self.trades = []
         self.specialOrders = False
         self.lastRebalanceTime = time.time()
+
+        self.apiClient = BinanceClient(publicKey, privateKey)
+        self.view = View()
+        self.analyzer = Analyzer()
+        self.configData = ConfigurationData()
 
     def check_special_order_status(self):
         rebalanceIntervalSeconds = float(self.marketsConfig['rebalance_interval_sec'])        
@@ -314,82 +319,80 @@ class ShannonsDemon():
             'tick_size': tickSize,
         }
 
+    def run(self, filename):
 
-def main():    
-    filename = 'config.json'
-    load_dotenv()
-    publicKey = os.environ['BIN_PUB_KEY']
-    privateKey = os.environ['BIN_PRIV_KEY']
-    apiClient = BinanceClient(publicKey, privateKey)
-    view = View()
-    bot = ShannonsDemon()
-    analyzer = Analyzer()
-    configData = ConfigurationData()
-    configData.read_config(filename) # Read initial config
-    bot.marketsConfig  = configData.config
-    print_timestamped_message('INITIALIZING')
-    binanceMarkets = apiClient.get_symbols()
-    print_timestamped_message('CANCELLING ALL ORDERS')
-    for idx, crypto_pair in enumerate(bot.marketsConfig['pairs']):
-        for bin_market in binanceMarkets:
-            if bin_market['symbol'] == crypto_pair['market']:
-                formats = bot.get_market_parameters(bin_market)
-                bot.marketsConfig['pairs'][idx]['tick_size_format'] = formats['tick_size_format']
-                bot.marketsConfig['pairs'][idx]['step_size_format'] = formats['step_size_format']
-                bot.marketsConfig['pairs'][idx]['tick_size'] = formats['tick_size']
-                bot.marketsConfig['pairs'][idx]['step_size'] = formats['tick_size']
-        apiClient.cancel_open_orders(crypto_pair['market'])
-    
-    while True:
-        bot.check_special_order_status()
-        print_timestamped_message('SENDING BUY AND SELL ORDERS')
-        
-        for i, crypto_pair in enumerate(bot.marketsConfig['pairs']):
-            pair = crypto_pair['market']
-            lastOrderId = crypto_pair['fromId']
-            newTrades = apiClient.get_new_trades(pair, lastOrderId) 
-            
-            for newTrade in newTrades: # For each pair, update its info if there are new executed trades
-                if newTrade['symbol'] == pair:
-                    bot.trades.append(newTrade)
-                    view.print_new_trade(newTrade)
-                    new_quantities = analyzer.calculate_new_asset_quantities(newTrade)            
-                    bot.marketsConfig['pairs'][i]['base_asset_qty'] = new_quantities['base_asset_qty']
-                    bot.marketsConfig['pairs'][i]['quote_asset_qty'] = new_quantities['quote_asset_qty']
-                    bot.marketsConfig['pairs'][i]['fromId'] = new_quantities['fromId']
+        self.configData.read_config(filename) # Read initial config
+        self.marketsConfig  = self.configData.config
 
-            lastPrice = apiClient.get_ticker(pair) # For each pair, generate and send new buy and sell orders            
-            bot.marketsConfig['pairs'][i]['bid_price'] = lastPrice['bidPrice']
-            bot.marketsConfig['pairs'][i]['ask_price'] = lastPrice['askPrice']
-
-            order = analyzer.calculate_order_data(crypto_pair, bot.specialOrders)
-            bot.marketsConfig['pairs'][i]['mid_price'] = order['mid_price']
-            bot.marketsConfig['pairs'][i]['away_from_buy'] = order['away_from_buy']
-            bot.marketsConfig['pairs'][i]['away_from_sell'] = order['away_from_sell']
-            bot.marketsConfig['pairs'][i]['order_bid_price'] = order['order_bid_price']
-            bot.marketsConfig['pairs'][i]['order_bid_quantity'] = order['order_bid_quantity']
-            bot.marketsConfig['pairs'][i]['order_ask_price'] = order['order_ask_price']
-            bot.marketsConfig['pairs'][i]['order_ask_quantity'] = order['order_ask_quantity']
-            
-            buyData = analyzer.set_buy_order_data(crypto_pair, order)
-            sellData = analyzer.set_sell_order_data(crypto_pair, order)
-            
-            view.print_buy_order_data(buyData)
-            view.print_sell_order_data(sellData)
-            if bot.marketsConfig['state'] == 'TRADE':
-                apiClient.send_buy_order(buyData)
-                apiClient.send_sell_order(sellData)
-
-        bot.specialOrders = False
-        configData.config = bot.marketsConfig # Write updated config            
-        configData.write_config(filename)
-        
-        print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_send_orders']))        
+        print_timestamped_message('INITIALIZING')
+        binanceMarkets = self.apiClient.get_symbols()
         print_timestamped_message('CANCELLING ALL ORDERS')
-        for crypto_pairs in bot.marketsConfig['pairs']:
-            apiClient.cancel_open_orders(crypto_pairs['market'])
-        print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_cancel_orders']))
+        for idx, crypto_pair in enumerate(self.marketsConfig['pairs']):
+            for bin_market in binanceMarkets:
+                if bin_market['symbol'] == crypto_pair['market']:
+                    formats = self.get_market_parameters(bin_market)
+                    self.marketsConfig['pairs'][idx]['tick_size_format'] = formats['tick_size_format']
+                    self.marketsConfig['pairs'][idx]['step_size_format'] = formats['step_size_format']
+                    self.marketsConfig['pairs'][idx]['tick_size'] = formats['tick_size']
+                    self.marketsConfig['pairs'][idx]['step_size'] = formats['tick_size']
+            self.apiClient.cancel_open_orders(crypto_pair['market'])
+        
+        while True:
+            self.check_special_order_status()
+            print_timestamped_message('SENDING BUY AND SELL ORDERS')
+            
+            for i, crypto_pair in enumerate(self.marketsConfig['pairs']):
+                pair = crypto_pair['market']
+                lastOrderId = crypto_pair['fromId']
+                newTrades = self.apiClient.get_new_trades(pair, lastOrderId) 
+                
+                for newTrade in newTrades: # For each pair, update its info if there are new executed trades
+                    if newTrade['symbol'] == pair:
+                        self.trades.append(newTrade)
+                        self.view.print_new_trade(newTrade)
+                        new_quantities = self.analyzer.calculate_new_asset_quantities(newTrade)            
+                        self.marketsConfig['pairs'][i]['base_asset_qty'] = new_quantities['base_asset_qty']
+                        self.marketsConfig['pairs'][i]['quote_asset_qty'] = new_quantities['quote_asset_qty']
+                        self.marketsConfig['pairs'][i]['fromId'] = new_quantities['fromId']
+
+                lastPrice = self.apiClient.get_ticker(pair) # For each pair, generate and send new buy and sell orders            
+                self.marketsConfig['pairs'][i]['bid_price'] = lastPrice['bidPrice']
+                self.marketsConfig['pairs'][i]['ask_price'] = lastPrice['askPrice']
+
+                order = self.analyzer.calculate_order_data(crypto_pair, self.specialOrders)
+                self.marketsConfig['pairs'][i]['mid_price'] = order['mid_price']
+                self.marketsConfig['pairs'][i]['away_from_buy'] = order['away_from_buy']
+                self.marketsConfig['pairs'][i]['away_from_sell'] = order['away_from_sell']
+                self.marketsConfig['pairs'][i]['order_bid_price'] = order['order_bid_price']
+                self.marketsConfig['pairs'][i]['order_bid_quantity'] = order['order_bid_quantity']
+                self.marketsConfig['pairs'][i]['order_ask_price'] = order['order_ask_price']
+                self.marketsConfig['pairs'][i]['order_ask_quantity'] = order['order_ask_quantity']
+                
+                buyData = self.analyzer.set_buy_order_data(crypto_pair, order)
+                sellData = self.analyzer.set_sell_order_data(crypto_pair, order)
+                
+                self.view.print_buy_order_data(buyData)
+                self.view.print_sell_order_data(sellData)
+                if self.marketsConfig['state'] == 'TRADE':
+                    self.apiClient.send_buy_order(buyData)
+                    self.apiClient.send_sell_order(sellData)
+
+            self.specialOrders = False
+            
+            self.configData.config = self.marketsConfig # Write updated config            
+            self.configData.write_config(filename)
+            
+            print_and_sleep(float(self.marketsConfig['sleep_seconds_after_send_orders']))        
+            print_timestamped_message('CANCELLING ALL ORDERS')
+            for crypto_pairs in self.marketsConfig['pairs']:
+                self.apiClient.cancel_open_orders(crypto_pairs['market'])
+            print_and_sleep(float(self.marketsConfig['sleep_seconds_after_cancel_orders']))
 
 
 if __name__ == '__main__':
-    main()
+    load_dotenv()
+    bot = ShannonsDemon(
+        publicKey=os.environ['BIN_PUB_KEY'],
+        privateKey = os.environ['BIN_PRIV_KEY'],
+    )
+    bot.run(filename='config.json')
