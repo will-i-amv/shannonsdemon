@@ -376,11 +376,11 @@ def main():
         bot.specialOrders = False
         configData.config = bot.marketsConfig # Write updated config            
         configData.write_config(filename)
+        
         print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_send_orders']))        
         print_timestamped_message('CANCELLING ALL ORDERS')
-        for i in range(len(bot.marketsConfig['pairs'])):
-            pair = bot.marketsConfig['pairs'][i]['market']
-            apiClient.cancel_open_orders(pair)
+        for crypto_pairs in bot.marketsConfig['pairs']:
+            apiClient.cancel_open_orders(crypto_pairs['market'])
         print_and_sleep(float(bot.marketsConfig['sleep_seconds_after_cancel_orders']))
 
 
