@@ -343,15 +343,21 @@ def main():
     while True:
         bot.check_special_order_status()
         print_timestamped_message('SENDING BUY AND SELL ORDERS')
-        for i in range(len(bot.marketsConfig['pairs'])):
-            pair = bot.marketsConfig['pairs'][i]['market']
-            lastOrderId = bot.marketsConfig['pairs'][i]['fromId']
+        
+        for i, crypto_pair in enumerate(bot.marketsConfig['pairs']):
+            pair = crypto_pair['market']
+            lastOrderId = crypto_pair['fromId']
             newTrades = apiClient.get_new_trades(pair, lastOrderId) 
-            for j in range(len(newTrades)): # For each pair, update its info if there are new executed trades
-                if newTrades[j]['symbol'] == pair:
-                    bot.trades.append(newTrades[j])
-                    bot.print_new_trade(newTrades[j])
-                    bot.calculate_new_asset_quantities(newTrades[j])            
+            
+            for newTrade in newTrades: # For each pair, update its info if there are new executed trades
+                if newTrade['symbol'] == pair:
+                    bot.trades.append(newTrade)
+                    bot.print_new_trade(newTrade)
+                    new_quantities = bot.calculate_new_asset_quantities(newTrade)            
+                    bot.marketsConfig['pairs'][i]['base_asset_qty'] = new_quantities['base_asset_qty']
+                    bot.marketsConfig['pairs'][i]['quote_asset_qty'] = new_quantities['quote_asset_qty']
+                    bot.marketsConfig['pairs'][i]['fromId'] = new_quantities['fromId']
+
             lastPrice = apiClient.get_ticker(pair) # For each pair, generate and send new buy and sell orders
             bot.get_market_prices(lastPrice, i)            
             bot.calculate_order_data(i)
