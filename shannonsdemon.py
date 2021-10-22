@@ -144,6 +144,34 @@ class ConfigurationData():
             print_timestamped_message('ERROR: UNABLE TO WRITE TO CONFIG FILE, BECAUSE: {}'.format(e))
 
 
+class View:
+    def __init__(self):
+        pass
+
+    def print_new_trade(self, trade):
+        print_timestamped_message(
+            ' NEW EXECUTED TRADE:\n' + \
+            ' Timestamp: {} '.format(trade['timestamp']) + \
+            ' Operation Type: {} '.format(trade['operationType']) + \
+            ' Pair: {} '.format(trade['pair']) + \
+            ' Price: {} '.format(trade['price'])  + \
+            ' Quantity: {} '.format(trade['quantity']))
+    
+    def print_buy_order_data(self, order):
+        print_timestamped_message(
+            'SEND BUY ORDER: {}\n'.format(order['newClientOrderId']) + \
+            'Order bid price: {0: <9} '.format(order['price']) + \
+            'Order bid quantity: {0: <8} '.format(order['quantity'])
+        )
+
+    def print_sell_order_data(self, order):
+        print_timestamped_message(
+            'SEND SELL ORDER: {}\n'.format(order['newClientOrderId']) + \
+            'Order ask price: {0: <9} '.format(order['price']) + \
+            'Order ask quantity: {0: <8} '.format(order['quantity'])
+        )
+
+
 class ShannonsDemon():
     def __init__(self):
         self.marketsConfig = {}
@@ -286,29 +314,6 @@ class ShannonsDemon():
         sellOrderData['newClientOrderId'] = myOrderId
         return sellOrderData
 
-    def print_new_trade(self, trade):
-        print_timestamped_message(
-            ' NEW EXECUTED TRADE:\n' + \
-            ' Timestamp: {} '.format(trade['timestamp']) + \
-            ' Operation Type: {} '.format(trade['operationType']) + \
-            ' Pair: {} '.format(trade['pair']) + \
-            ' Price: {} '.format(trade['price'])  + \
-            ' Quantity: {} '.format(trade['quantity']))
-    
-    def print_buy_order_data(self, order):
-        print_timestamped_message(
-            'SEND BUY ORDER: {}\n'.format(order['newClientOrderId']) + \
-            'Order bid price: {0: <9} '.format(order['price']) + \
-            'Order bid quantity: {0: <8} '.format(order['quantity'])
-        )
-
-    def print_sell_order_data(self, order):
-        print_timestamped_message(
-            'SEND SELL ORDER: {}\n'.format(order['newClientOrderId']) + \
-            'Order ask price: {0: <9} '.format(order['price']) + \
-            'Order ask quantity: {0: <8} '.format(order['quantity'])
-        )
-
 
 def main():    
     filename = 'config.json'
@@ -316,6 +321,7 @@ def main():
     publicKey = os.environ['BIN_PUB_KEY']
     privateKey = os.environ['BIN_PRIV_KEY']
     apiClient = BinanceClient(publicKey, privateKey)
+    view = View()
     bot = ShannonsDemon()
     configData = ConfigurationData()
     configData.read_config(filename) # Read initial config
@@ -345,7 +351,7 @@ def main():
             for newTrade in newTrades: # For each pair, update its info if there are new executed trades
                 if newTrade['symbol'] == pair:
                     bot.trades.append(newTrade)
-                    bot.print_new_trade(newTrade)
+                    view.print_new_trade(newTrade)
                     new_quantities = bot.calculate_new_asset_quantities(newTrade)            
                     bot.marketsConfig['pairs'][i]['base_asset_qty'] = new_quantities['base_asset_qty']
                     bot.marketsConfig['pairs'][i]['quote_asset_qty'] = new_quantities['quote_asset_qty']
@@ -367,8 +373,8 @@ def main():
             buyData = bot.set_buy_order_data(crypto_pair, order)
             sellData = bot.set_sell_order_data(crypto_pair, order)
             
-            bot.print_buy_order_data(buyData)
-            bot.print_sell_order_data(sellData)
+            view.print_buy_order_data(buyData)
+            view.print_sell_order_data(sellData)
             if bot.marketsConfig['state'] == 'TRADE':
                 apiClient.send_buy_order(buyData)
                 apiClient.send_sell_order(sellData)
