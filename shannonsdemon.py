@@ -158,53 +158,55 @@ class ShannonsDemon():
             self.lastRebalanceTime = time.time()
             self.specialOrders = True
 
-    def get_market_parameters(self, market, i):
-        for marketFilter in market['filters']:
-            if marketFilter['filterType'] == 'LOT_SIZE':
-                stepSize = float(marketFilter['stepSize'])
+    def get_market_parameters(self, market):
+        for filter_ in market['filters']:
+            if filter_['filterType'] == 'LOT_SIZE':
+                stepSize = float(filter_['stepSize'])
                 if stepSize >= 1.0:
-                    stepSizesFormat = '{:.0f}'
+                    stepSizeFormat = '{:.0f}'
                 elif stepSize == 0.1:
-                    stepSizesFormat = '{:.1f}'
+                    stepSizeFormat = '{:.1f}'
                 elif stepSize == 0.01:
-                    stepSizesFormat = '{:.2f}'
+                    stepSizeFormat = '{:.2f}'
                 elif stepSize == 0.001:
-                    stepSizesFormat = '{:.3f}'
+                    stepSizeFormat = '{:.3f}'
                 elif stepSize == 0.0001:
-                    stepSizesFormat = '{:.4f}'
+                    stepSizeFormat = '{:.4f}'
                 elif stepSize == 0.00001:
-                    stepSizesFormat = '{:.5f}'
+                    stepSizeFormat = '{:.5f}'
                 elif stepSize == 0.000001:
-                    stepSizesFormat = '{:.6f}'
+                    stepSizeFormat = '{:.6f}'
                 elif stepSize == 0.0000001:
-                    stepSizesFormat = '{:.7f}'
+                    stepSizeFormat = '{:.7f}'
                 elif stepSize == 0.00000001:
-                    stepSizesFormat = '{:.8f}'
-            if marketFilter['filterType'] == 'PRICE_FILTER':
-                tickSize = float(marketFilter['tickSize'])
+                    stepSizeFormat = '{:.8f}'
+            if filter_['filterType'] == 'PRICE_FILTER':
+                tickSize = float(filter_['tickSize'])
                 if tickSize >= 1.0:
-                    tickSizesFormat = '{:.0f}'
+                    tickSizeFormat = '{:.0f}'
                 elif tickSize == 0.1:
-                    tickSizesFormat = '{:.1f}'
+                    tickSizeFormat = '{:.1f}'
                 elif tickSize == 0.01:
-                    tickSizesFormat = '{:.2f}'
+                    tickSizeFormat = '{:.2f}'
                 elif tickSize == 0.001:
-                    tickSizesFormat = '{:.3f}'
+                    tickSizeFormat = '{:.3f}'
                 elif tickSize == 0.0001:
-                    tickSizesFormat = '{:.4f}'
+                    tickSizeFormat = '{:.4f}'
                 elif tickSize == 0.00001:
-                    tickSizesFormat = '{:.5f}'
+                    tickSizeFormat = '{:.5f}'
                 elif tickSize == 0.000001:
-                    tickSizesFormat = '{:.6f}'
+                    tickSizeFormat = '{:.6f}'
                 elif tickSize == 0.0000001:
-                    tickSizesFormat = '{:.7f}'
+                    tickSizeFormat = '{:.7f}'
                 elif tickSize == 0.00000001:
-                    tickSizesFormat = '{:.8f}'        
-        self.marketsConfig['pairs'][i]['tick_size_format'] = tickSizesFormat
-        self.marketsConfig['pairs'][i]['step_size_format'] = stepSizesFormat
-        self.marketsConfig['pairs'][i]['tick_size'] = tickSize
-        self.marketsConfig['pairs'][i]['step_size'] = stepSize
-        
+                    tickSizeFormat = '{:.8f}'
+        return {
+            'step_size_format': stepSizeFormat,
+            'tick_size_format': tickSizeFormat,
+            'step_size': stepSize,
+            'tick_size': tickSize,
+        }
+
     def get_market_prices(self, prices, i):
         self.marketsConfig['pairs'][i]['bid_price'] = prices['bidPrice']
         self.marketsConfig['pairs'][i]['ask_price'] = prices['askPrice']
@@ -328,12 +330,16 @@ def main():
     print_timestamped_message('INITIALIZING')
     binanceMarkets = apiClient.get_symbols()
     print_timestamped_message('CANCELLING ALL ORDERS')
-    for i in range(len(bot.marketsConfig['pairs'])):
-        pair = bot.marketsConfig['pairs'][i]['market']        
-        for j in range(len(binanceMarkets)):# For each pair, get its parameters from Binance
-            if binanceMarkets[j]['symbol'] == pair:
-                bot.get_market_parameters(binanceMarkets[j], i)
-        apiClient.cancel_open_orders(pair)        
+    for idx, crypto_pair in enumerate(bot.marketsConfig['pairs']):
+        for bin_market in binanceMarkets:
+            if bin_market['symbol'] == crypto_pair['market']:
+                formats = bot.get_market_parameters(bin_market)
+                bot.marketsConfig['pairs'][idx]['tick_size_format'] = formats['tick_size_format']
+                bot.marketsConfig['pairs'][idx]['step_size_format'] = formats['step_size_format']
+                bot.marketsConfig['pairs'][idx]['tick_size'] = formats['tick_size']
+                bot.marketsConfig['pairs'][idx]['step_size'] = formats['tick_size']
+        apiClient.cancel_open_orders(crypto_pair['market'])
+    
     while True:
         bot.check_special_order_status()
         print_timestamped_message('SENDING BUY AND SELL ORDERS')
