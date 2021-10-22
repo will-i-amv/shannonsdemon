@@ -325,14 +325,14 @@ class ShannonsDemon:
         print_timestamped_message('INITIALIZING')
         binance_pairs = self.apiClient.get_symbols()
         print_timestamped_message('CANCELLING ALL ORDERS')
-        for idx, bot_pair in enumerate(self.marketsConfig['pairs']):
+        formats = {}
+        for bot_pair in self.marketsConfig['pairs']:
+            symbol = bot_pair['market']
             for binance_pair in binance_pairs:
                 if binance_pair['symbol'] == bot_pair['market']:
-                    formats = self.get_market_parameters(binance_pair)
-                    self.marketsConfig['pairs'][idx]['tick_size_format'] = formats['tick_size_format']
-                    self.marketsConfig['pairs'][idx]['step_size_format'] = formats['step_size_format']
-                    self.marketsConfig['pairs'][idx]['tick_size'] = formats['tick_size']
-                    self.marketsConfig['pairs'][idx]['step_size'] = formats['tick_size']
+                    formats[symbol] = self.get_market_parameters(binance_pair)
+
+        for bot_pair in self.marketsConfig['pairs']:
             self.apiClient.cancel_open_orders(bot_pair['market'])
         
         while True:
