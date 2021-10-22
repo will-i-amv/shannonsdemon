@@ -187,17 +187,16 @@ class Analyzer:
         new_quantity['fromId'] = trade['id']
         return new_quantity
 
-    def calculate_order_data(self, pair, specialOrders):
+    def calculate_order_data(self, pair, price, specialOrders):
         tickSize = pair['tick_size']
         tickSizeFormat = pair['tick_size_format']
-        stepSizeFormat = pair['step_size_format']        
+        stepSizeFormat = pair['step_size_format']
         totalCoin = float(pair['base_asset_qty'])
         totalCash = float(pair['quote_asset_qty'])                        
-        bidPrice = float(pair['bid_price'])
-        askPrice = float(pair['ask_price'])
         buyPercentage = float(pair['buy_percentage'])
         sellPercentage = float(pair['sell_percentage'])
-        
+        bidPrice = float(price['bidPrice'])
+        askPrice = float(price['askPrice'])
         fairPrice = totalCash / totalCoin
         midPrice = tickSizeFormat.format(0.5 * (bidPrice + askPrice))
         awayFromBuy = '{:.1f}'.format(100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
@@ -353,19 +352,8 @@ class ShannonsDemon:
                         self.marketsConfig['pairs'][i]['quote_asset_qty'] = new_quantities['quote_asset_qty']
                         self.marketsConfig['pairs'][i]['fromId'] = new_quantities['fromId']
 
-                lastPrice = self.apiClient.get_ticker(pair) # For each pair, generate and send new buy and sell orders            
-                self.marketsConfig['pairs'][i]['bid_price'] = lastPrice['bidPrice']
-                self.marketsConfig['pairs'][i]['ask_price'] = lastPrice['askPrice']
-
-                order = self.analyzer.calculate_order_data(crypto_pair, self.specialOrders)
-                self.marketsConfig['pairs'][i]['mid_price'] = order['mid_price']
-                self.marketsConfig['pairs'][i]['away_from_buy'] = order['away_from_buy']
-                self.marketsConfig['pairs'][i]['away_from_sell'] = order['away_from_sell']
-                self.marketsConfig['pairs'][i]['order_bid_price'] = order['order_bid_price']
-                self.marketsConfig['pairs'][i]['order_bid_quantity'] = order['order_bid_quantity']
-                self.marketsConfig['pairs'][i]['order_ask_price'] = order['order_ask_price']
-                self.marketsConfig['pairs'][i]['order_ask_quantity'] = order['order_ask_quantity']
-                
+                lastPrice = self.apiClient.get_ticker(pair) # For each pair, generate and send new buy and sell orders
+                order = self.analyzer.calculate_order_data(crypto_pair, lastPrice, self.specialOrders)
                 buyData = self.analyzer.set_buy_order_data(crypto_pair, order)
                 sellData = self.analyzer.set_sell_order_data(crypto_pair, order)
                 
