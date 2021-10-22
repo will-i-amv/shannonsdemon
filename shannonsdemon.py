@@ -255,7 +255,6 @@ class Analyzer:
 class ShannonsDemon:
     def __init__(self, publicKey, privateKey):
         self.marketsConfig = {}
-        self.trades = []
         self.specialOrders = False
         self.lastRebalanceTime = time.time()
 
@@ -348,7 +347,6 @@ class ShannonsDemon:
                 
                 for newTrade in newTrades: # For each pair, update its info if there are new executed trades
                     if newTrade['symbol'] == pair:
-                        self.trades.append(newTrade)
                         self.view.print_new_trade(newTrade)
                         new_quantities = self.analyzer.calculate_new_asset_quantities(newTrade)            
                         self.marketsConfig['pairs'][i]['base_asset_qty'] = new_quantities['base_asset_qty']
