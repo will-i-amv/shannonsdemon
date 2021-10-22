@@ -172,68 +172,9 @@ class View:
         )
 
 
-class ShannonsDemon():
+class Analyzer:
     def __init__(self):
-        self.marketsConfig = {}
-        self.trades = []
-        self.specialOrders = False
         self.timeConst = 1579349682.0
-        self.lastRebalanceTime = time.time()
-
-    def check_special_order_status(self):
-        rebalanceIntervalSeconds = float(self.marketsConfig['rebalance_interval_sec'])        
-        if time.time() > self.lastRebalanceTime + rebalanceIntervalSeconds:
-            self.lastRebalanceTime = time.time()
-            self.specialOrders = True
-
-    def get_market_parameters(self, market):
-        for filter_ in market['filters']:
-            if filter_['filterType'] == 'LOT_SIZE':
-                stepSize = float(filter_['stepSize'])
-                if stepSize >= 1.0:
-                    stepSizeFormat = '{:.0f}'
-                elif stepSize == 0.1:
-                    stepSizeFormat = '{:.1f}'
-                elif stepSize == 0.01:
-                    stepSizeFormat = '{:.2f}'
-                elif stepSize == 0.001:
-                    stepSizeFormat = '{:.3f}'
-                elif stepSize == 0.0001:
-                    stepSizeFormat = '{:.4f}'
-                elif stepSize == 0.00001:
-                    stepSizeFormat = '{:.5f}'
-                elif stepSize == 0.000001:
-                    stepSizeFormat = '{:.6f}'
-                elif stepSize == 0.0000001:
-                    stepSizeFormat = '{:.7f}'
-                elif stepSize == 0.00000001:
-                    stepSizeFormat = '{:.8f}'
-            if filter_['filterType'] == 'PRICE_FILTER':
-                tickSize = float(filter_['tickSize'])
-                if tickSize >= 1.0:
-                    tickSizeFormat = '{:.0f}'
-                elif tickSize == 0.1:
-                    tickSizeFormat = '{:.1f}'
-                elif tickSize == 0.01:
-                    tickSizeFormat = '{:.2f}'
-                elif tickSize == 0.001:
-                    tickSizeFormat = '{:.3f}'
-                elif tickSize == 0.0001:
-                    tickSizeFormat = '{:.4f}'
-                elif tickSize == 0.00001:
-                    tickSizeFormat = '{:.5f}'
-                elif tickSize == 0.000001:
-                    tickSizeFormat = '{:.6f}'
-                elif tickSize == 0.0000001:
-                    tickSizeFormat = '{:.7f}'
-                elif tickSize == 0.00000001:
-                    tickSizeFormat = '{:.8f}'
-        return {
-            'step_size_format': stepSizeFormat,
-            'tick_size_format': tickSizeFormat,
-            'step_size': stepSize,
-            'tick_size': tickSize,
-        }
 
     def calculate_new_asset_quantities(self, pair, trade):
         new_quantity = {}
@@ -311,6 +252,69 @@ class ShannonsDemon():
         return sellOrderData
 
 
+class ShannonsDemon():
+    def __init__(self):
+        self.marketsConfig = {}
+        self.trades = []
+        self.specialOrders = False
+        self.lastRebalanceTime = time.time()
+
+    def check_special_order_status(self):
+        rebalanceIntervalSeconds = float(self.marketsConfig['rebalance_interval_sec'])        
+        if time.time() > self.lastRebalanceTime + rebalanceIntervalSeconds:
+            self.lastRebalanceTime = time.time()
+            self.specialOrders = True
+
+    def get_market_parameters(self, market):
+        for filter_ in market['filters']:
+            if filter_['filterType'] == 'LOT_SIZE':
+                stepSize = float(filter_['stepSize'])
+                if stepSize >= 1.0:
+                    stepSizeFormat = '{:.0f}'
+                elif stepSize == 0.1:
+                    stepSizeFormat = '{:.1f}'
+                elif stepSize == 0.01:
+                    stepSizeFormat = '{:.2f}'
+                elif stepSize == 0.001:
+                    stepSizeFormat = '{:.3f}'
+                elif stepSize == 0.0001:
+                    stepSizeFormat = '{:.4f}'
+                elif stepSize == 0.00001:
+                    stepSizeFormat = '{:.5f}'
+                elif stepSize == 0.000001:
+                    stepSizeFormat = '{:.6f}'
+                elif stepSize == 0.0000001:
+                    stepSizeFormat = '{:.7f}'
+                elif stepSize == 0.00000001:
+                    stepSizeFormat = '{:.8f}'
+            if filter_['filterType'] == 'PRICE_FILTER':
+                tickSize = float(filter_['tickSize'])
+                if tickSize >= 1.0:
+                    tickSizeFormat = '{:.0f}'
+                elif tickSize == 0.1:
+                    tickSizeFormat = '{:.1f}'
+                elif tickSize == 0.01:
+                    tickSizeFormat = '{:.2f}'
+                elif tickSize == 0.001:
+                    tickSizeFormat = '{:.3f}'
+                elif tickSize == 0.0001:
+                    tickSizeFormat = '{:.4f}'
+                elif tickSize == 0.00001:
+                    tickSizeFormat = '{:.5f}'
+                elif tickSize == 0.000001:
+                    tickSizeFormat = '{:.6f}'
+                elif tickSize == 0.0000001:
+                    tickSizeFormat = '{:.7f}'
+                elif tickSize == 0.00000001:
+                    tickSizeFormat = '{:.8f}'
+        return {
+            'step_size_format': stepSizeFormat,
+            'tick_size_format': tickSizeFormat,
+            'step_size': stepSize,
+            'tick_size': tickSize,
+        }
+
+
 def main():    
     filename = 'config.json'
     load_dotenv()
@@ -319,6 +323,7 @@ def main():
     apiClient = BinanceClient(publicKey, privateKey)
     view = View()
     bot = ShannonsDemon()
+    analyzer = Analyzer()
     configData = ConfigurationData()
     configData.read_config(filename) # Read initial config
     bot.marketsConfig  = configData.config
@@ -348,7 +353,7 @@ def main():
                 if newTrade['symbol'] == pair:
                     bot.trades.append(newTrade)
                     view.print_new_trade(newTrade)
-                    new_quantities = bot.calculate_new_asset_quantities(newTrade)            
+                    new_quantities = analyzer.calculate_new_asset_quantities(newTrade)            
                     bot.marketsConfig['pairs'][i]['base_asset_qty'] = new_quantities['base_asset_qty']
                     bot.marketsConfig['pairs'][i]['quote_asset_qty'] = new_quantities['quote_asset_qty']
                     bot.marketsConfig['pairs'][i]['fromId'] = new_quantities['fromId']
@@ -357,7 +362,7 @@ def main():
             bot.marketsConfig['pairs'][i]['bid_price'] = lastPrice['bidPrice']
             bot.marketsConfig['pairs'][i]['ask_price'] = lastPrice['askPrice']
 
-            order = bot.calculate_order_data(crypto_pair, bot.specialOrders)
+            order = analyzer.calculate_order_data(crypto_pair, bot.specialOrders)
             bot.marketsConfig['pairs'][i]['mid_price'] = order['mid_price']
             bot.marketsConfig['pairs'][i]['away_from_buy'] = order['away_from_buy']
             bot.marketsConfig['pairs'][i]['away_from_sell'] = order['away_from_sell']
@@ -366,8 +371,8 @@ def main():
             bot.marketsConfig['pairs'][i]['order_ask_price'] = order['order_ask_price']
             bot.marketsConfig['pairs'][i]['order_ask_quantity'] = order['order_ask_quantity']
             
-            buyData = bot.set_buy_order_data(crypto_pair, order)
-            sellData = bot.set_sell_order_data(crypto_pair, order)
+            buyData = analyzer.set_buy_order_data(crypto_pair, order)
+            sellData = analyzer.set_sell_order_data(crypto_pair, order)
             
             view.print_buy_order_data(buyData)
             view.print_sell_order_data(sellData)
