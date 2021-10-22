@@ -323,45 +323,45 @@ class ShannonsDemon:
         self.marketsConfig  = self.configData.config
 
         print_timestamped_message('INITIALIZING')
-        binanceMarkets = self.apiClient.get_symbols()
+        binance_pairs = self.apiClient.get_symbols()
         print_timestamped_message('CANCELLING ALL ORDERS')
-        for idx, crypto_pair in enumerate(self.marketsConfig['pairs']):
-            for bin_market in binanceMarkets:
-                if bin_market['symbol'] == crypto_pair['market']:
-                    formats = self.get_market_parameters(bin_market)
+        for idx, bot_pair in enumerate(self.marketsConfig['pairs']):
+            for binance_pair in binance_pairs:
+                if binance_pair['symbol'] == bot_pair['market']:
+                    formats = self.get_market_parameters(binance_pair)
                     self.marketsConfig['pairs'][idx]['tick_size_format'] = formats['tick_size_format']
                     self.marketsConfig['pairs'][idx]['step_size_format'] = formats['step_size_format']
                     self.marketsConfig['pairs'][idx]['tick_size'] = formats['tick_size']
                     self.marketsConfig['pairs'][idx]['step_size'] = formats['tick_size']
-            self.apiClient.cancel_open_orders(crypto_pair['market'])
+            self.apiClient.cancel_open_orders(bot_pair['market'])
         
         while True:
             self.check_special_order_status()
             print_timestamped_message('SENDING BUY AND SELL ORDERS')
             
-            for i, crypto_pair in enumerate(self.marketsConfig['pairs']):
-                pair = crypto_pair['market']
-                lastOrderId = crypto_pair['fromId']
-                newTrades = self.apiClient.get_new_trades(pair, lastOrderId) 
+            for i, bot_pair in enumerate(self.marketsConfig['pairs']):
+                symbol = bot_pair['market']
+                lastOrderId = bot_pair['fromId']
+                newTrades = self.apiClient.get_new_trades(symbol, lastOrderId) 
                 
                 for newTrade in newTrades: # For each pair, update its info if there are new executed trades
-                    if newTrade['symbol'] == pair:
+                    if newTrade['symbol'] == symbol:
                         self.view.print_new_trade(newTrade)
                         new_quantities = self.analyzer.calculate_new_asset_quantities(newTrade)            
                         self.marketsConfig['pairs'][i]['base_asset_qty'] = new_quantities['base_asset_qty']
                         self.marketsConfig['pairs'][i]['quote_asset_qty'] = new_quantities['quote_asset_qty']
                         self.marketsConfig['pairs'][i]['fromId'] = new_quantities['fromId']
 
-                lastPrice = self.apiClient.get_ticker(pair) # For each pair, generate and send new buy and sell orders
-                order = self.analyzer.calculate_order_data(crypto_pair, lastPrice, self.specialOrders)
-                buyData = self.analyzer.set_buy_order_data(crypto_pair, order)
-                sellData = self.analyzer.set_sell_order_data(crypto_pair, order)
+                price = self.apiClient.get_ticker(symbol) # For each pair, generate and send new buy and sell orders
+                order = self.analyzer.calculate_order_data(bot_pair, price, self.specialOrders)
+                buy_order = self.analyzer.set_buy_order_data(bot_pair, order)
+                sell_order = self.analyzer.set_sell_order_data(bot_pair, order)
                 
-                self.view.print_buy_order_data(buyData)
-                self.view.print_sell_order_data(sellData)
+                self.view.print_buy_order_data(buy_order)
+                self.view.print_sell_order_data(sell_order)
                 if self.marketsConfig['state'] == 'TRADE':
-                    self.apiClient.send_buy_order(buyData)
-                    self.apiClient.send_sell_order(sellData)
+                    self.apiClient.send_buy_order(buy_order)
+                    self.apiClient.send_sell_order(sell_order)
 
             self.specialOrders = False
             
@@ -370,8 +370,8 @@ class ShannonsDemon:
             
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_send_orders']))        
             print_timestamped_message('CANCELLING ALL ORDERS')
-            for crypto_pairs in self.marketsConfig['pairs']:
-                self.apiClient.cancel_open_orders(crypto_pairs['market'])
+            for bot_pairs in self.marketsConfig['pairs']:
+                self.apiClient.cancel_open_orders(bot_pairs['market'])
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_cancel_orders']))
 
 
