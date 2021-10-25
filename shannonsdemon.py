@@ -41,9 +41,64 @@ class BinanceClient:
     def __init__(self, publicKey, privateKey):
         self.client = Client(publicKey, privateKey)
 
-    @handle_api_errors(message='UNABLE TO GET SYMBOLS')
-    def get_symbols(self):
-        return self.client.get_exchange_info()['symbols']
+    @handle_api_errors(message='UNABLE TO GET PAIR INFO')
+    def _get_pair_info(self, symbol):
+        return self.client.get_symbol_info(symbol=symbol)
+
+    def _get_pair_format(self, symbol):
+        for filter_ in self._get_pair_info(symbol)['filters']:
+            if filter_['filterType'] == 'LOT_SIZE':
+                step_size = float(filter_['stepSize'])
+                if step_size >= 1.0:
+                    step_size_format = '{:.0f}'
+                elif step_size == 0.1:
+                    step_size_format = '{:.1f}'
+                elif step_size == 0.01:
+                    step_size_format = '{:.2f}'
+                elif step_size == 0.001:
+                    step_size_format = '{:.3f}'
+                elif step_size == 0.0001:
+                    step_size_format = '{:.4f}'
+                elif step_size == 0.00001:
+                    step_size_format = '{:.5f}'
+                elif step_size == 0.000001:
+                    step_size_format = '{:.6f}'
+                elif step_size == 0.0000001:
+                    step_size_format = '{:.7f}'
+                elif step_size == 0.00000001:
+                    step_size_format = '{:.8f}'
+            if filter_['filterType'] == 'PRICE_FILTER':
+                tick_size = float(filter_['tickSize'])
+                if tick_size >= 1.0:
+                    tick_size_format = '{:.0f}'
+                elif tick_size == 0.1:
+                    tick_size_format = '{:.1f}'
+                elif tick_size == 0.01:
+                    tick_size_format = '{:.2f}'
+                elif tick_size == 0.001:
+                    tick_size_format = '{:.3f}'
+                elif tick_size == 0.0001:
+                    tick_size_format = '{:.4f}'
+                elif tick_size == 0.00001:
+                    tick_size_format = '{:.5f}'
+                elif tick_size == 0.000001:
+                    tick_size_format = '{:.6f}'
+                elif tick_size == 0.0000001:
+                    tick_size_format = '{:.7f}'
+                elif tick_size == 0.00000001:
+                    tick_size_format = '{:.8f}'
+        return {
+            'stepSizeFormat': step_size_format,
+            'tickSizeFormat': tick_size_format,
+            'stepSize': step_size,
+            'tickSize': tick_size,
+        }
+
+    def get_pair_formats(self, symbols):
+        return {
+            symbol: self._get_pair_format(symbol)
+            for symbol in symbols
+        }
 
     @handle_api_errors(message='UNABLE TO GET TICKER')
     def get_ticker(self, pair):
@@ -268,70 +323,15 @@ class ShannonsDemon:
             self.lastRebalanceTime = time.time()
             self.specialOrders = True
 
-    def get_market_parameters(self, market):
-        for filter_ in market['filters']:
-            if filter_['filterType'] == 'LOT_SIZE':
-                stepSize = float(filter_['stepSize'])
-                if stepSize >= 1.0:
-                    stepSizeFormat = '{:.0f}'
-                elif stepSize == 0.1:
-                    stepSizeFormat = '{:.1f}'
-                elif stepSize == 0.01:
-                    stepSizeFormat = '{:.2f}'
-                elif stepSize == 0.001:
-                    stepSizeFormat = '{:.3f}'
-                elif stepSize == 0.0001:
-                    stepSizeFormat = '{:.4f}'
-                elif stepSize == 0.00001:
-                    stepSizeFormat = '{:.5f}'
-                elif stepSize == 0.000001:
-                    stepSizeFormat = '{:.6f}'
-                elif stepSize == 0.0000001:
-                    stepSizeFormat = '{:.7f}'
-                elif stepSize == 0.00000001:
-                    stepSizeFormat = '{:.8f}'
-            if filter_['filterType'] == 'PRICE_FILTER':
-                tickSize = float(filter_['tickSize'])
-                if tickSize >= 1.0:
-                    tickSizeFormat = '{:.0f}'
-                elif tickSize == 0.1:
-                    tickSizeFormat = '{:.1f}'
-                elif tickSize == 0.01:
-                    tickSizeFormat = '{:.2f}'
-                elif tickSize == 0.001:
-                    tickSizeFormat = '{:.3f}'
-                elif tickSize == 0.0001:
-                    tickSizeFormat = '{:.4f}'
-                elif tickSize == 0.00001:
-                    tickSizeFormat = '{:.5f}'
-                elif tickSize == 0.000001:
-                    tickSizeFormat = '{:.6f}'
-                elif tickSize == 0.0000001:
-                    tickSizeFormat = '{:.7f}'
-                elif tickSize == 0.00000001:
-                    tickSizeFormat = '{:.8f}'
-        return {
-            'step_size_format': stepSizeFormat,
-            'tick_size_format': tickSizeFormat,
-            'step_size': stepSize,
-            'tick_size': tickSize,
-        }
-
     def run(self, filename):
-
+        symbols = ['BNBUSDT', 'ETHUSDT', 'LTCUSDT']
         self.configData.read_config(filename) # Read initial config
         self.marketsConfig  = self.configData.config
 
         print_timestamped_message('INITIALIZING')
-        binance_pairs = self.apiClient.get_symbols()
-        print_timestamped_message('CANCELLING ALL ORDERS')
-        formats = {}
-        for bot_pair in self.marketsConfig['pairs']:
-            symbol = bot_pair['market']
-            for binance_pair in binance_pairs:
-                if binance_pair['symbol'] == bot_pair['market']:
-                    formats[symbol] = self.get_market_parameters(binance_pair)
+        formats = self.apiClient.get_pair_formats(symbols)
 
+        print_timestamped_message('CANCELLING ALL ORDERS')
         for bot_pair in self.marketsConfig['pairs']:
             self.apiClient.cancel_open_orders(bot_pair['market'])
         
