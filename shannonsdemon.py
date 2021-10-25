@@ -130,36 +130,40 @@ class BinanceClient:
                     order_id=order['orderId'],
                 )
 
-    def is_shannon_order(self, trade):
-        order = self.get_order(
-                symbol=trade['symbol'],
-                order_id=trade['orderId']
-            )
-        return order['clientOrderId'][0:3] == 'SHN'
-
     @handle_api_errors(message='UNABLE TO GET TRADES')
-    def get_trades(self, pair, order_id, **kwargs):
-        executed_trades = self.client.get_my_trades(
-            symbol=pair,
-            fromId=order_id + 1,
-            **kwargs
-        )
-        return sorted(
-            executed_trades,
-            key=lambda x: x['id'],
-        )
-
-    def get_new_trades(self, pair, lastOrderId):
-        trades = self.get_trades(
-            pair=pair,
-            order_id=lastOrderId,
+    def _get_trades(self, symbol, trade_id):
+        return self.client.get_my_trades(
+            symbol=symbol,
+            fromId=trade_id + 1,
             limit=1000,
         )
+
+    def _get_new_trades(self, symbol, last_id):
+        trades = sorted(
+            self._get_trades(
+                symbol=symbol,
+                trade_id=last_id,
+            ),
+            key=lambda x: x['id'],
+        )
         return [
-            trade
+            {
+                'time': trade['time'],
+                'tradeId': trade['id'],
+                'orderId': trade['orderId'],
+                'price': trade['price'],
+                'baseAssetQty': trade['qty'],
+                'quoteAssetQty': trade['quoteQty'],
+                'isBuyer': trade['isBuyer'],
+            } 
             for trade in trades
-            if self.is_shannon_order(trade)
         ]
+
+    def get_all_new_trades(self, last_ids):
+        return {
+            symbol: self._get_new_trades(symbol, last_id)
+            for symbol, last_id in last_ids.items()
+        }
 
     @handle_api_errors(message='UNABLE TO SEND BUY ORDER')
     def send_buy_order(self, buyOrderData):
@@ -324,7 +328,9 @@ class ShannonsDemon:
             self.specialOrders = True
 
     def run(self, filename):
-        symbols = ['BNBUSDT', 'ETHUSDT', 'LTCUSDT']
+        symbols = ['BNBUSDT', 'ETHUSDT']
+        last_ids = {'BNBUSDT': 418495317, 'ETHUSDT': 634206855}
+
         self.configData.read_config(filename) # Read initial config
         self.marketsConfig  = self.configData.config
 
@@ -337,21 +343,14 @@ class ShannonsDemon:
         
         while True:
             self.check_special_order_status()
-            print_timestamped_message('SENDING BUY AND SELL ORDERS')
             
+            new_trades = self.apiClient.get_all_new_trades(last_ids)
+            #self.view.print_new_trade(new_trades)
+            #self.update_asset_quantities(new_trades)
+
+            print_timestamped_message('SENDING BUY AND SELL ORDERS')
             for i, bot_pair in enumerate(self.marketsConfig['pairs']):
                 symbol = bot_pair['market']
-                lastOrderId = bot_pair['fromId']
-                newTrades = self.apiClient.get_new_trades(symbol, lastOrderId) 
-                
-                for newTrade in newTrades: # For each pair, update its info if there are new executed trades
-                    if newTrade['symbol'] == symbol:
-                        self.view.print_new_trade(newTrade)
-                        new_quantities = self.analyzer.calculate_new_asset_quantities(newTrade)            
-                        self.marketsConfig['pairs'][i]['base_asset_qty'] = new_quantities['base_asset_qty']
-                        self.marketsConfig['pairs'][i]['quote_asset_qty'] = new_quantities['quote_asset_qty']
-                        self.marketsConfig['pairs'][i]['fromId'] = new_quantities['fromId']
-
                 price = self.apiClient.get_ticker(symbol) # For each pair, generate and send new buy and sell orders
                 order = self.analyzer.calculate_order_data(bot_pair, price, self.specialOrders)
                 buy_order = self.analyzer.set_buy_order_data(bot_pair, order)
