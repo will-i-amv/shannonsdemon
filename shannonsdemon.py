@@ -207,14 +207,20 @@ class View:
     def __init__(self):
         pass
 
-    def print_new_trade(self, trade):
-        print_timestamped_message(
-            ' NEW EXECUTED TRADE:\n' + \
-            ' Timestamp: {} '.format(trade['timestamp']) + \
-            ' Operation Type: {} '.format(trade['operationType']) + \
-            ' Pair: {} '.format(trade['pair']) + \
-            ' Price: {} '.format(trade['price'])  + \
-            ' Quantity: {} '.format(trade['quantity']))
+    def print_new_trades(self, all_trades):
+        for symbol, trades in all_trades.items():
+            print(f'NEW EXECUTED TRADES FOR THE PAIR {symbol}:')
+            for trade in trades:
+                print(
+                    f'''
+                    *************************************
+                    Timestamp: {trade['time']}
+                    Operation Type: {'BUY' if trade['isBuyer'] else 'SELL'}
+                    Price: {trade['price']}
+                    Quantity: {trade['baseAssetQty']}
+                    *************************************
+                    '''
+                )
     
     def print_buy_order_data(self, order):
         print_timestamped_message(
@@ -327,6 +333,23 @@ class ShannonsDemon:
             self.lastRebalanceTime = time.time()
             self.specialOrders = True
 
+    def are_there_new_trades(self, all_trades):
+        return any([
+                len(trades) 
+                for trades in all_trades.values()
+            ]
+        )
+
+    def update_asset_quantities(self, all_trades):
+        for symbol, trades in all_trades.items():
+            for trade in trades:
+                if trade['isBuyer']:
+                    self.pairs[symbol]['baseAssetQty'] += trade['baseAssetQty']
+                    self.pairs[symbol]['quoteAssetQty'] -= trade['quoteAssetQty']
+                else:
+                    self.pairs[symbol]['baseAssetQty'] -= trade['baseAssetQty']
+                    self.pairs[symbol]['quoteAssetQty'] += trade['quoteAssetQty']
+
     def run(self, filename):
         symbols = ['BNBUSDT', 'ETHUSDT']
         last_ids = {'BNBUSDT': 418495317, 'ETHUSDT': 634206855}
@@ -343,10 +366,10 @@ class ShannonsDemon:
         
         while True:
             self.check_special_order_status()
-            
             new_trades = self.apiClient.get_all_new_trades(last_ids)
-            #self.view.print_new_trade(new_trades)
-            #self.update_asset_quantities(new_trades)
+            if self.are_there_new_trades(new_trades):
+                self.view.print_new_trades(new_trades)
+                #self.update_asset_quantities(new_trades)
 
             print_timestamped_message('SENDING BUY AND SELL ORDERS')
             for i, bot_pair in enumerate(self.marketsConfig['pairs']):
@@ -364,8 +387,8 @@ class ShannonsDemon:
 
             self.specialOrders = False
             
-            self.configData.config = self.marketsConfig # Write updated config            
-            self.configData.write_config(filename)
+            #self.configData.config = self.marketsConfig # Write updated config            
+            #self.configData.write_config(filename)
             
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_send_orders']))        
             print_timestamped_message('CANCELLING ALL ORDERS')
