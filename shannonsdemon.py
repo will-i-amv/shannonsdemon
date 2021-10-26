@@ -101,8 +101,18 @@ class BinanceClient:
         }
 
     @handle_api_errors(message='UNABLE TO GET TICKER')
-    def get_ticker(self, pair):
-        return self.client.get_ticker(symbol=pair)
+    def _get_ticker(self, symbol):
+        price = self.client.get_ticker(symbol=symbol)
+        return {
+            'bidPrice': float(price['bidPrice']),
+            'askPrice': float(price['askPrice']),
+        }
+
+    def get_all_prices(self, symbols):
+        return {
+            symbol: self._get_ticker(symbol)
+            for symbol in symbols
+        }
 
     @handle_api_errors(message='UNABLE TO GET ORDER')
     def get_order(self, symbol, order_id):
@@ -371,10 +381,11 @@ class ShannonsDemon:
                 self.view.print_new_trades(new_trades)
                 #self.update_asset_quantities(new_trades)
 
+            new_prices = self.apiClient.get_all_prices(symbols)
+
             print_timestamped_message('SENDING BUY AND SELL ORDERS')
             for i, bot_pair in enumerate(self.marketsConfig['pairs']):
                 symbol = bot_pair['market']
-                price = self.apiClient.get_ticker(symbol) # For each pair, generate and send new buy and sell orders
                 order = self.analyzer.calculate_order_data(bot_pair, price, self.specialOrders)
                 buy_order = self.analyzer.set_buy_order_data(bot_pair, order)
                 sell_order = self.analyzer.set_sell_order_data(bot_pair, order)
