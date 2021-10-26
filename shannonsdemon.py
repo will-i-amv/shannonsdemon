@@ -248,100 +248,114 @@ class View:
 
 
 class Analyzer:
-    def __init__(self):
-        self.timeConst = 1579349682.0
+    def __init__(self, special_orders):
+        self.initial_time = 1579349682.0
+        self.special_orders = special_orders
 
-    def calculate_new_asset_quantities(self, pair, trade):
-        new_quantity = {}
-        if trade['operationType'] == 'buy':
-            new_quantity['base_asset_qty'] = pair['base_asset_qty'] + float(trade['base_asset_qty'])
-            new_quantity['quote_asset_qty']  = pair['base_asset_qty'] - float(trade['quote_asset_qty'])
-        else:
-            new_quantity['base_asset_qty'] = pair['base_asset_qty'] - float(trade['base_asset_qty'])
-            new_quantity['quote_asset_qty'] = pair['base_asset_qty'] + float(trade['quote_asset_qty'])       
-        new_quantity['fromId'] = trade['id']
-        return new_quantity
-
-    def calculate_order_data(self, pair, price, specialOrders):
-        tickSize = pair['tick_size']
-        tickSizeFormat = pair['tick_size_format']
-        stepSizeFormat = pair['step_size_format']
-        totalCoin = float(pair['base_asset_qty'])
-        totalCash = float(pair['quote_asset_qty'])                        
-        buyPercentage = float(pair['buy_percentage'])
-        sellPercentage = float(pair['sell_percentage'])
-        bidPrice = float(price['bidPrice'])
-        askPrice = float(price['askPrice'])
-        fairPrice = totalCash / totalCoin
-        midPrice = tickSizeFormat.format(0.5 * (bidPrice + askPrice))
-        awayFromBuy = '{:.1f}'.format(100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
-        awayFromSell = '{:.1f}'.format(100.0 * (float(midPrice) - fairPrice) / fairPrice) + '%'
-        awayFromMidPrice = (float(midPrice) - fairPrice) / fairPrice        
-        
-        if specialOrders:
-            if float(awayFromMidPrice) >= 0.05:
-                bidPercentage = min(0.95, buyPercentage)
-                askPercentage = max(1.05, 1.0 + float(awayFromMidPrice))
-            elif float(awayFromMidPrice) <= -0.05:
-                bidPercentage = min(0.95, 1.0 + float(awayFromMidPrice))
-                askPercentage = max(1.05, sellPercentage)
+    @property
+    def _order_timestamp(self):
+        return str(int(time.time() - self.initial_time))
+    
+    def _calc_percentages(self, buy_percentage, sell_percentage, away_from_mid_price):
+        if self.special_orders:
+            if away_from_mid_price >= 0.05:
+                bid_percentage = min(0.95, buy_percentage)
+                ask_percentage = max(1.05, 1.0 + away_from_mid_price)
+            elif away_from_mid_price <= -0.05:
+                bid_percentage = min(0.95, 1.0 + away_from_mid_price)
+                ask_percentage = max(1.05, sell_percentage)
             else:
-                bidPercentage = min(0.95, buyPercentage)
-                askPercentage = max(1.05, sellPercentage)
+                bid_percentage = min(0.95, buy_percentage)
+                ask_percentage = max(1.05, sell_percentage)
         else:
-            bidPercentage = min(0.95, buyPercentage)
-            askPercentage = max(1.05, sellPercentage)
-        mybidPrice = bidPercentage * fairPrice
-        myaskPrice = askPercentage * fairPrice
-        myBidQuantity = stepSizeFormat.format((0.5 * (totalCoin * mybidPrice + totalCash) - totalCoin * mybidPrice)* 1.0 / mybidPrice)
-        myAskQuantity = stepSizeFormat.format((-0.5 * (totalCoin * myaskPrice + totalCash) + totalCoin * myaskPrice)* 1.0 / myaskPrice)
-        if float(midPrice) < 0.99 * mybidPrice or float(midPrice) > 1.01 * myaskPrice:
-            print_timestamped_message('ERROR: THE BOT HITS MARKET, INSPECT QUANTITIES CONFIG FILE')        
+            bid_percentage = min(0.95, buy_percentage)
+            ask_percentage = max(1.05, sell_percentage)
         return {
-            'mid_price': midPrice,
-            'away_from_buy': awayFromBuy,
-            'away_from_sell': awayFromSell,
-            'order_bid_price': tickSizeFormat.format(min(mybidPrice, bidPrice + tickSize)),
-            'order_bid_quantity': myBidQuantity,
-            'order_ask_price': tickSizeFormat.format(max(myaskPrice, askPrice - tickSize)),
-            'order_ask_quantity': myAskQuantity,
+            'bidPercentage': bid_percentage,
+            'askPercentage': ask_percentage,
         }
 
-    def set_buy_order_data(self, pair, order):
-        buyOrderData = {}
-        myOrderId = 'SHN-B-' + pair['market'] + '-' + str(int(time.time() - self.timeConst))                
-        buyOrderData['symbol'] = pair['market']
-        buyOrderData['quantity'] = order['order_bid_price']
-        buyOrderData['price'] = order['order_bid_quantity']
-        buyOrderData['newClientOrderId'] = myOrderId
-        return buyOrderData
+    def _calc_new_prices(self, percentages, fair_price, tick_size, bid_price, ask_price):
+        my_bid_price = min(percentages['bidPercentage'] * fair_price, bid_price + tick_size)
+        my_ask_price = max(percentages['askPercentage'] * fair_price, ask_price - tick_size)
+        return {
+            'bidPrice': my_bid_price,
+            'askPrice': my_ask_price,
+        }
 
-    def set_sell_order_data(self, pair, order):
-        sellOrderData = {}        
-        myOrderId = 'SHN-S-' + pair['market'] + '-' + str(int(time.time() - self.timeConst))        
-        sellOrderData['symbol'] = pair['market']
-        sellOrderData['quantity'] = order['order_ask_quantity']
-        sellOrderData['price'] = order['order_ask_price']
-        sellOrderData['newClientOrderId'] = myOrderId
-        return sellOrderData
+    def _calc_new_quantities(self, total_coin, total_cash, new_prices):
+        my_bid_quantity = 0.5*(total_cash - total_coin*new_prices['bidPrice']) / new_prices['bidPrice']
+        my_ask_quantity = 0.5*(total_coin*new_prices['askPrice'] - total_cash) / new_prices['askPrice']
+        return {
+            'bidQty': my_bid_quantity,
+            'askQty': my_ask_quantity,
+        }
+
+    def _calc_orders(self, symbol, pair, price):
+        fair_price = pair['quoteAssetQty'] / pair['baseAssetQty']
+        mid_price = 0.5*(price['bidPrice'] + price['askPrice'])
+        away_from_mid_price = (mid_price - fair_price) / fair_price
+        percentages = self._calc_percentages(
+            buy_percentage=pair['buyPercentage'], 
+            sell_percentage=pair['sellPercentage'], 
+            away_from_mid_price=away_from_mid_price, 
+        )
+        new_prices = self._calc_new_prices(
+            percentages=percentages, 
+            fair_price=fair_price, 
+            tick_size=pair['tickSize'], 
+            bid_price=price['bidPrice'], 
+            ask_price=price['askPrice'],
+        )
+        new_quantities = self._calc_new_quantities(
+            total_coin=pair['baseAssetQty'], 
+            total_cash=pair['quoteAssetQty'], 
+            new_prices=new_prices,
+        )
+        tick_size_format = pair['tickSizeFormat']
+        step_size_format = pair['stepSizeFormat']
+        buy_order = {
+            'symbol': symbol,
+            'qty': step_size_format.format(new_quantities['bidQty']),
+            'price': tick_size_format.format(new_prices['bidPrice']),
+            'newClientOrderId': f'SHN-B-{symbol}-{self._order_timestamp}',
+        }
+        sell_order = {
+            'symbol': symbol,
+            'qty': step_size_format.format(new_quantities['askQty']),
+            'price': tick_size_format.format(new_prices['askPrice']),
+            'newClientOrderId': f'SHN-S-{symbol}-{self._order_timestamp}',
+        }
+        return {
+            'buy_order': buy_order,
+            'sell_order': sell_order,
+        }
+
+    def calc_all_orders(self, pairs, prices):
+        return {
+            symbol: self._calc_orders(symbol, pair, price)
+            for symbol, pair, price in zip(
+                pairs.keys(), 
+                pairs.values(), 
+                prices.values()
+            )
+        }
 
 
 class ShannonsDemon:
     def __init__(self, publicKey, privateKey):
         self.marketsConfig = {}
-        self.specialOrders = False
         self.lastRebalanceTime = time.time()
-
         self.apiClient = BinanceClient(publicKey, privateKey)
         self.view = View()
-        self.analyzer = Analyzer()
+        self.analyzer = Analyzer(special_orders=False)
         self.configData = ConfigurationData()
 
     def check_special_order_status(self):
         rebalanceIntervalSeconds = float(self.marketsConfig['rebalance_interval_sec'])        
         if time.time() > self.lastRebalanceTime + rebalanceIntervalSeconds:
             self.lastRebalanceTime = time.time()
-            self.specialOrders = True
+            self.analyzer.special_orders = True
 
     def are_there_new_trades(self, all_trades):
         return any([
@@ -383,20 +397,18 @@ class ShannonsDemon:
 
             new_prices = self.apiClient.get_all_prices(symbols)
 
-            print_timestamped_message('SENDING BUY AND SELL ORDERS')
-            for i, bot_pair in enumerate(self.marketsConfig['pairs']):
-                symbol = bot_pair['market']
-                order = self.analyzer.calculate_order_data(bot_pair, price, self.specialOrders)
-                buy_order = self.analyzer.set_buy_order_data(bot_pair, order)
-                sell_order = self.analyzer.set_sell_order_data(bot_pair, order)
+            #new_orders = self.analyzer.calc_all_orders(self.pairs, new_prices)
                 
+            print_timestamped_message('SENDING BUY AND SELL ORDERS')
+            '''
+            for i, bot_pair in enumerate(self.marketsConfig['pairs']):
                 self.view.print_buy_order_data(buy_order)
                 self.view.print_sell_order_data(sell_order)
                 if self.marketsConfig['state'] == 'TRADE':
                     self.apiClient.send_buy_order(buy_order)
                     self.apiClient.send_sell_order(sell_order)
-
-            self.specialOrders = False
+            '''
+            self.analyzer.special_orders = False
             
             #self.configData.config = self.marketsConfig # Write updated config            
             #self.configData.write_config(filename)
