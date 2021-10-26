@@ -149,11 +149,11 @@ class BinanceClient:
         return [
             {
                 'time': trade['time'],
-                'tradeId': trade['id'],
+                'id': trade['id'],
                 'orderId': trade['orderId'],
-                'price': trade['price'],
-                'baseAssetQty': trade['qty'],
-                'quoteAssetQty': trade['quoteQty'],
+                'price': float(trade['price']),
+                'baseAssetQty': float(trade['qty']),
+                'quoteAssetQty': float(trade['quoteQty']),
                 'isBuyer': trade['isBuyer'],
             } 
             for trade in trades
