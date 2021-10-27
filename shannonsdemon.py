@@ -232,19 +232,29 @@ class View:
                     '''
                 )
     
-    def print_buy_order_data(self, order):
-        print_timestamped_message(
-            'SEND BUY ORDER: {}\n'.format(order['newClientOrderId']) + \
-            'Order bid price: {0: <9} '.format(order['price']) + \
-            'Order bid quantity: {0: <8} '.format(order['quantity'])
-        )
-
-    def print_sell_order_data(self, order):
-        print_timestamped_message(
-            'SEND SELL ORDER: {}\n'.format(order['newClientOrderId']) + \
-            'Order ask price: {0: <9} '.format(order['price']) + \
-            'Order ask quantity: {0: <8} '.format(order['quantity'])
-        )
+    def print_new_orders(self, all_orders):
+        for symbol, orders in all_orders.items():
+            print(f'SENDING NEW ORDERS FOR THE PAIR {symbol}:')
+            print(f'BUY ORDERS:')
+            print(
+                f'''
+                *************************************
+                Type: Buy Order
+                Price: {orders['buy_order']['price']}
+                Quantity: {orders['buy_order']['qty']}
+                *************************************
+                '''
+            )
+            print(f'SELL ORDERS:')
+            print(
+                f'''
+                *************************************
+                Type: Sell Order
+                Price: {orders['sell_order']['price']}
+                Quantity: {orders['sell_order']['qty']}
+                *************************************
+                '''
+            )
 
 
 class Analyzer:
@@ -401,12 +411,12 @@ class ShannonsDemon:
                 self.marketsConfig['pairs'], 
                 new_prices
             )
-                
+            
+            self.view.print_new_orders(new_orders)
+            
             print_timestamped_message('SENDING BUY AND SELL ORDERS')
             '''
             for i, bot_pair in enumerate(self.marketsConfig['pairs']):
-                self.view.print_buy_order_data(buy_order)
-                self.view.print_sell_order_data(sell_order)
                 if self.marketsConfig['state'] == 'TRADE':
                     self.apiClient.send_buy_order(buy_order)
                     self.apiClient.send_sell_order(sell_order)
