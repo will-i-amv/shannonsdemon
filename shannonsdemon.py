@@ -385,8 +385,8 @@ class ShannonsDemon:
         formats = self.apiClient.get_pair_formats(symbols)
 
         print_timestamped_message('CANCELLING ALL ORDERS')
-        for bot_pair in self.marketsConfig['pairs']:
-            self.apiClient.cancel_open_orders(bot_pair['symbol'])
+        for symbol in self.marketsConfig['pairs'].keys():
+            self.apiClient.cancel_open_orders(symbol)
         
         while True:
             self.check_special_order_status()
@@ -397,7 +397,10 @@ class ShannonsDemon:
 
             new_prices = self.apiClient.get_all_prices(symbols)
 
-            #new_orders = self.analyzer.calc_all_orders(self.pairs, new_prices)
+            new_orders = self.analyzer.calc_all_orders(
+                self.marketsConfig['pairs'], 
+                new_prices
+            )
                 
             print_timestamped_message('SENDING BUY AND SELL ORDERS')
             '''
