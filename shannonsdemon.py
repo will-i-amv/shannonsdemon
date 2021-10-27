@@ -386,7 +386,7 @@ class ShannonsDemon:
 
         print_timestamped_message('CANCELLING ALL ORDERS')
         for bot_pair in self.marketsConfig['pairs']:
-            self.apiClient.cancel_open_orders(bot_pair['market'])
+            self.apiClient.cancel_open_orders(bot_pair['symbol'])
         
         while True:
             self.check_special_order_status()
