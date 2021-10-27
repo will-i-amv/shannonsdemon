@@ -1,1 +1,38 @@
-{"state": "TEST", "sleep_seconds_after_send_orders": 300, "sleep_seconds_after_cancel_orders": 60, "rebalance_interval_sec": 1080, "pairs": [{"market": "BNBUSDT", "base_asset_qty": 0.73, "quote_asset_qty": 200, "buy_percentage": 0.9, "sell_percentage": 1.1, "fromId": 0, "tick_size_format": "{:.2f}", "step_size_format": "{:.4f}", "tick_size": 0.01, "step_size": 0.0001, "bid_price": "292.13000000", "ask_price": "292.23000000", "mid_price": "292.18", "away_from_buy": "6.6%", "away_from_sell": "6.6%", "order_bid_price": "246.58", "order_bid_quantity": "0.0406", "order_ask_price": "301.37", "order_ask_quantity": "0.0332"}, {"market": "ETHUSDT", "base_asset_qty": 0.103, "quote_asset_qty": 200, "buy_percentage": 0.9, "sell_percentage": 1.1, "fromId": 158674754, "tick_size_format": "{:.2f}", "step_size_format": "{:.5f}", "tick_size": 0.01, "step_size": 1e-05, "bid_price": "1975.24000000", "ask_price": "1975.25000000", "mid_price": "1975.24", "away_from_buy": "1.7%", "away_from_sell": "1.7%", "order_bid_price": "1747.57", "order_bid_quantity": "0.00572", "order_ask_price": "2135.92", "order_ask_quantity": "0.00468"}, {"market": "LTCUSDT", "base_asset_qty": 1.62, "quote_asset_qty": 200, "buy_percentage": 0.9, "sell_percentage": 1.1, "fromId": 51707958, "tick_size_format": "{:.2f}", "step_size_format": "{:.5f}", "tick_size": 0.01, "step_size": 1e-05, "bid_price": "127.81000000", "ask_price": "127.82000000", "mid_price": "127.81", "away_from_buy": "3.5%", "away_from_sell": "3.5%", "order_bid_price": "111.11", "order_bid_quantity": "0.09000", "order_ask_price": "135.80", "order_ask_quantity": "0.07364"}]}
+{
+	"state": "TEST",
+	"sleep_seconds_after_send_orders": 300,
+	"sleep_seconds_after_cancel_orders": 60,
+	"rebalance_interval_sec": 1080,
+	"pairs": [{
+			"symbol": "BNBUSDT",
+			"baseAssetQty": 0.73,
+			"quoteAssetQty": 200,
+			"buyPercentage": 0.9,
+			"sellPercentage": 1.1,
+			"tickSizeFormat": "{:.2f}",
+			"stepSizeFormat": "{:.4f}",
+			"tickSize": 0.01,
+			"stepSize": 0.0001
+		},{
+			"symbol": "ETHUSDT",
+			"baseAssetQty": 0.103,
+			"quoteAssetQty": 200,
+			"buyPercentage": 0.9,
+			"sellPercentage": 1.1,
+			"tickSizeFormat": "{:.2f}",
+			"stepSizeFormat": "{:.5f}",
+			"tickSize": 0.01,
+			"stepSize": 1e-05
+		},{
+			"symbol": "LTCUSDT",
+			"baseAssetQty": 1.62,
+			"quoteAssetQty": 200,
+			"buyPercentage": 0.9,
+			"sellPercentage": 1.1,
+			"tickSizeFormat": "{:.2f}",
+			"stepSizeFormat": "{:.5f}",
+			"tickSize": 0.01,
+			"stepSize": 1e-05
+		}
+	]
+}
