@@ -176,22 +176,27 @@ class BinanceClient:
         }
 
     @handle_api_errors(message='UNABLE TO SEND BUY ORDER')
-    def send_buy_order(self, buyOrderData):
+    def send_buy_order(self, order):
         self.client.order_limit_buy(
-            symbol=buyOrderData['pair'], 
-            quantity=buyOrderData['order_bid_quantity'],
-            price=buyOrderData['order_bid_price'],
-            newClientOrderId=buyOrderData['myOrderId']
+            symbol=order['symbol'], 
+            quantity=order['qty'],
+            price=order['price'],
+            newClientOrderId=order['newClientOrderId']
         )
 
     @handle_api_errors(message='UNABLE TO SEND SELL ORDER')
-    def send_sell_order(self, sellOrderData):
+    def send_sell_order(self, order):
         self.client.order_limit_sell(
-            symbol=sellOrderData['pair'],
-            quantity=sellOrderData['order_ask_quantity'],
-            price=sellOrderData['order_ask_price'],
-            newClientOrderId=sellOrderData['myOrderId']
+            symbol=order['symbol'],
+            quantity=order['qty'],
+            price=order['price'],
+            newClientOrderId=order['newClientOrderId']
         )
+
+    def send_all_orders(self, all_orders):
+        for orders in all_orders.values():
+            self.send_buy_order(orders['buy_order'])
+            self.send_sell_order(orders['sell_order'])
 
 
 class ConfigurationData():
@@ -415,12 +420,9 @@ class ShannonsDemon:
             self.view.print_new_orders(new_orders)
             
             print_timestamped_message('SENDING BUY AND SELL ORDERS')
-            '''
-            for i, bot_pair in enumerate(self.marketsConfig['pairs']):
-                if self.marketsConfig['state'] == 'TRADE':
-                    self.apiClient.send_buy_order(buy_order)
-                    self.apiClient.send_sell_order(sell_order)
-            '''
+            if self.marketsConfig['state'] == 'TRADE':
+                self.apiClient.send_all_orders(new_orders)
+
             self.analyzer.special_orders = False
             
             #self.configData.config = self.marketsConfig # Write updated config            
@@ -428,8 +430,8 @@ class ShannonsDemon:
             
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_send_orders']))        
             print_timestamped_message('CANCELLING ALL ORDERS')
-            for bot_pairs in self.marketsConfig['pairs']:
-                self.apiClient.cancel_open_orders(bot_pairs['market'])
+            for symbol in self.marketsConfig['pairs'].keys():
+                self.apiClient.cancel_open_orders(symbol)
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_cancel_orders']))
 
 
