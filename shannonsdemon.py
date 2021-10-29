@@ -114,30 +114,23 @@ class BinanceClient:
             for symbol in symbols
         }
 
-    @handle_api_errors(message='UNABLE TO GET ORDER')
-    def get_order(self, symbol, order_id):
-        return self.client.get_order(
-            symbol=symbol,
-            orderId=order_id,
-        )
-
     @handle_api_errors(message='UNABLE TO GET OPEN ORDERS')
-    def get_open_orders(self, pair):
-        return self.client.get_open_orders(symbol=pair)
+    def _get_open_orders(self, symbol):
+        return self.client.get_open_orders(symbol=symbol)
 
     @handle_api_errors(message='UNABLE TO CANCEL ORDER')
-    def cancel_order(self, pair, order_id):
+    def _cancel_order(self, symbol, order_id):
         self.client.cancel_order(
-            symbol=pair, 
+            symbol=symbol, 
             orderId=order_id,
         )
 
-    def cancel_open_orders(self, pair):
-        for order in self.get_open_orders(pair=pair):
-            if order['clientOrderId'][0:3] == 'SHN':
-                self.cancel_order(
-                    pair=pair, 
-                    order_id=order['orderId'],
+    def cancel_all_open_orders(self, symbols):
+        for symbol in symbols:
+            for open_order in self._get_open_orders(symbol=symbol):
+                self._cancel_order(
+                    symbol=symbol, 
+                    order_id=open_order['orderId'],
                 )
 
     @handle_api_errors(message='UNABLE TO GET TRADES')
@@ -176,22 +169,27 @@ class BinanceClient:
         }
 
     @handle_api_errors(message='UNABLE TO SEND BUY ORDER')
-    def send_buy_order(self, buyOrderData):
+    def send_buy_order(self, order):
         self.client.order_limit_buy(
-            symbol=buyOrderData['pair'], 
-            quantity=buyOrderData['order_bid_quantity'],
-            price=buyOrderData['order_bid_price'],
-            newClientOrderId=buyOrderData['myOrderId']
+            symbol=order['symbol'], 
+            quantity=order['qty'],
+            price=order['price'],
+            newClientOrderId=order['newClientOrderId']
         )
 
     @handle_api_errors(message='UNABLE TO SEND SELL ORDER')
-    def send_sell_order(self, sellOrderData):
+    def send_sell_order(self, order):
         self.client.order_limit_sell(
-            symbol=sellOrderData['pair'],
-            quantity=sellOrderData['order_ask_quantity'],
-            price=sellOrderData['order_ask_price'],
-            newClientOrderId=sellOrderData['myOrderId']
+            symbol=order['symbol'],
+            quantity=order['qty'],
+            price=order['price'],
+            newClientOrderId=order['newClientOrderId']
         )
+
+    def send_all_orders(self, all_orders):
+        for orders in all_orders.values():
+            self.send_buy_order(orders['buy_order'])
+            self.send_sell_order(orders['sell_order'])
 
 
 class ConfigurationData():
@@ -232,19 +230,29 @@ class View:
                     '''
                 )
     
-    def print_buy_order_data(self, order):
-        print_timestamped_message(
-            'SEND BUY ORDER: {}\n'.format(order['newClientOrderId']) + \
-            'Order bid price: {0: <9} '.format(order['price']) + \
-            'Order bid quantity: {0: <8} '.format(order['quantity'])
-        )
-
-    def print_sell_order_data(self, order):
-        print_timestamped_message(
-            'SEND SELL ORDER: {}\n'.format(order['newClientOrderId']) + \
-            'Order ask price: {0: <9} '.format(order['price']) + \
-            'Order ask quantity: {0: <8} '.format(order['quantity'])
-        )
+    def print_new_orders(self, all_orders):
+        for symbol, orders in all_orders.items():
+            print(f'SENDING NEW ORDERS FOR THE PAIR {symbol}:')
+            print(f'BUY ORDERS:')
+            print(
+                f'''
+                *************************************
+                Type: Buy Order
+                Price: {orders['buy_order']['price']}
+                Quantity: {orders['buy_order']['qty']}
+                *************************************
+                '''
+            )
+            print(f'SELL ORDERS:')
+            print(
+                f'''
+                *************************************
+                Type: Sell Order
+                Price: {orders['sell_order']['price']}
+                Quantity: {orders['sell_order']['qty']}
+                *************************************
+                '''
+            )
 
 
 class Analyzer:
@@ -385,8 +393,8 @@ class ShannonsDemon:
         formats = self.apiClient.get_pair_formats(symbols)
 
         print_timestamped_message('CANCELLING ALL ORDERS')
-        for bot_pair in self.marketsConfig['pairs']:
-            self.apiClient.cancel_open_orders(bot_pair['market'])
+        if self.marketsConfig['state'] == 'TRADE':
+            self.apiClient.cancel_all_open_orders(symbols)
         
         while True:
             self.check_special_order_status()
@@ -397,17 +405,17 @@ class ShannonsDemon:
 
             new_prices = self.apiClient.get_all_prices(symbols)
 
-            #new_orders = self.analyzer.calc_all_orders(self.pairs, new_prices)
-                
+            new_orders = self.analyzer.calc_all_orders(
+                self.marketsConfig['pairs'], 
+                new_prices
+            )
+            
+            self.view.print_new_orders(new_orders)
+            
             print_timestamped_message('SENDING BUY AND SELL ORDERS')
-            '''
-            for i, bot_pair in enumerate(self.marketsConfig['pairs']):
-                self.view.print_buy_order_data(buy_order)
-                self.view.print_sell_order_data(sell_order)
-                if self.marketsConfig['state'] == 'TRADE':
-                    self.apiClient.send_buy_order(buy_order)
-                    self.apiClient.send_sell_order(sell_order)
-            '''
+            if self.marketsConfig['state'] == 'TRADE':
+                self.apiClient.send_all_orders(new_orders)
+
             self.analyzer.special_orders = False
             
             #self.configData.config = self.marketsConfig # Write updated config            
@@ -415,8 +423,8 @@ class ShannonsDemon:
             
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_send_orders']))        
             print_timestamped_message('CANCELLING ALL ORDERS')
-            for bot_pairs in self.marketsConfig['pairs']:
-                self.apiClient.cancel_open_orders(bot_pairs['market'])
+            if self.marketsConfig['state'] == 'TRADE':
+                self.apiClient.cancel_all_open_orders(symbols)
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_cancel_orders']))
 
 
