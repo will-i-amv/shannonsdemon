@@ -114,30 +114,23 @@ class BinanceClient:
             for symbol in symbols
         }
 
-    @handle_api_errors(message='UNABLE TO GET ORDER')
-    def get_order(self, symbol, order_id):
-        return self.client.get_order(
-            symbol=symbol,
-            orderId=order_id,
-        )
-
     @handle_api_errors(message='UNABLE TO GET OPEN ORDERS')
-    def get_open_orders(self, pair):
-        return self.client.get_open_orders(symbol=pair)
+    def _get_open_orders(self, symbol):
+        return self.client.get_open_orders(symbol=symbol)
 
     @handle_api_errors(message='UNABLE TO CANCEL ORDER')
-    def cancel_order(self, pair, order_id):
+    def _cancel_order(self, symbol, order_id):
         self.client.cancel_order(
-            symbol=pair, 
+            symbol=symbol, 
             orderId=order_id,
         )
 
-    def cancel_open_orders(self, pair):
-        for order in self.get_open_orders(pair=pair):
-            if order['clientOrderId'][0:3] == 'SHN':
-                self.cancel_order(
-                    pair=pair, 
-                    order_id=order['orderId'],
+    def cancel_all_open_orders(self, symbols):
+        for symbol in symbols:
+            for open_order in self._get_open_orders(symbol=symbol):
+                self._cancel_order(
+                    symbol=symbol, 
+                    order_id=open_order['orderId'],
                 )
 
     @handle_api_errors(message='UNABLE TO GET TRADES')
@@ -400,8 +393,7 @@ class ShannonsDemon:
         formats = self.apiClient.get_pair_formats(symbols)
 
         print_timestamped_message('CANCELLING ALL ORDERS')
-        for symbol in self.marketsConfig['pairs'].keys():
-            self.apiClient.cancel_open_orders(symbol)
+        self.apiClient.cancel_all_open_orders(symbols)
         
         while True:
             self.check_special_order_status()
@@ -430,8 +422,7 @@ class ShannonsDemon:
             
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_send_orders']))        
             print_timestamped_message('CANCELLING ALL ORDERS')
-            for symbol in self.marketsConfig['pairs'].keys():
-                self.apiClient.cancel_open_orders(symbol)
+            self.apiClient.cancel_all_open_orders(symbols)
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_cancel_orders']))
 
 
