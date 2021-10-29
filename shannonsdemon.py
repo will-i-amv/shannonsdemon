@@ -393,7 +393,8 @@ class ShannonsDemon:
         formats = self.apiClient.get_pair_formats(symbols)
 
         print_timestamped_message('CANCELLING ALL ORDERS')
-        self.apiClient.cancel_all_open_orders(symbols)
+        if self.marketsConfig['state'] == 'TRADE':
+            self.apiClient.cancel_all_open_orders(symbols)
         
         while True:
             self.check_special_order_status()
@@ -422,7 +423,8 @@ class ShannonsDemon:
             
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_send_orders']))        
             print_timestamped_message('CANCELLING ALL ORDERS')
-            self.apiClient.cancel_all_open_orders(symbols)
+            if self.marketsConfig['state'] == 'TRADE':
+                self.apiClient.cancel_all_open_orders(symbols)
             print_and_sleep(float(self.marketsConfig['sleep_seconds_after_cancel_orders']))
 
 
