@@ -163,10 +163,10 @@ class BinanceClient:
             for trade in trades
         ]
 
-    def get_all_new_trades(self, symbols, last_ids):
+    def get_all_new_trades(self, last_trades):
         return {
-            symbol: self._get_new_trades(symbol, last_id)
-            for symbol, last_id in zip(symbols, last_ids)
+            symbol: self._get_new_trades(symbol, trade['id'])
+            for symbol, trade in last_trades.items()
         }
 
     @handle_api_errors(message='UNABLE TO SEND BUY ORDER')
@@ -380,16 +380,8 @@ class ShannonsDemon:
     @property
     def symbols(self):
         return [
-            pair['symbol']
-            for pair in self.pairs
-        ]
-
-    @property
-    def last_ids(self):
-
-        return [
-            trade['id']
-            for trade in self.trades
+            symbol
+            for symbol in self.pairs.keys()
         ]
 
     def check_special_order_status(self):
@@ -416,11 +408,6 @@ class ShannonsDemon:
                     self.pairs[symbol]['quoteAssetQty'] += trade['quoteAssetQty']
 
     def run(self):
-        '''
-        symbols = ['BNBUSDT', 'ETHUSDT']
-        last_ids = {'BNBUSDT': 418495317, 'ETHUSDT': 634206855}
-        '''
-
         print_timestamped_message('INITIALIZING')
         #formats = self.apiClient.get_pair_formats(self.symbols)
 
@@ -430,7 +417,7 @@ class ShannonsDemon:
         
         while True:
             self.check_special_order_status()
-            new_trades = self.apiClient.get_all_new_trades(self.symbols, self.last_ids)
+            new_trades = self.apiClient.get_all_new_trades(self.trades)
             if self.are_there_new_trades(new_trades):
                 self.view.print_new_trades(new_trades)
                 #self.update_asset_quantities(new_trades)
