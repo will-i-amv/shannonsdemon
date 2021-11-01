@@ -197,7 +197,7 @@ class Model():
         self.data = {}
         self.filenames = filenames
         self.read_config()
-
+    
     def read_config(self):
         with \
             open(self.filenames['config']) as fh1, \
@@ -364,6 +364,33 @@ class ShannonsDemon:
         self.analyzer = Analyzer(special_orders=False)
         self.model = Model(filenames)
 
+    @property
+    def bot_status(self):
+        return self.model.data['config']['state']
+
+    @property
+    def pairs(self):
+        return self.model.data['pairs']
+    
+    @property
+    def trades(self):
+        return self.model.data['trades']
+
+    @property
+    def symbols(self):
+        return [
+            pair['symbol']
+            for pair in self.pairs
+        ]
+
+    @property
+    def last_ids(self):
+
+        return [
+            trade['id']
+            for trade in self.trades
+        ]
+
     def check_special_order_status(self):
         rebalanceIntervalSeconds = float(self.model.data['config']['delay_after_rebalance'])        
         if time.time() > self.lastRebalanceTime + rebalanceIntervalSeconds:
@@ -388,34 +415,36 @@ class ShannonsDemon:
                     self.pairs[symbol]['quoteAssetQty'] += trade['quoteAssetQty']
 
     def run(self):
+        '''
         symbols = ['BNBUSDT', 'ETHUSDT']
         last_ids = {'BNBUSDT': 418495317, 'ETHUSDT': 634206855}
+        '''
 
         print_timestamped_message('INITIALIZING')
-        formats = self.apiClient.get_pair_formats(symbols)
+        #formats = self.apiClient.get_pair_formats(self.symbols)
 
         print_timestamped_message('CANCELLING ALL ORDERS')
-        if self.model.data['config']['state'] == 'TRADE':
-            self.apiClient.cancel_all_open_orders(symbols)
+        if self.bot_status == 'TRADE':
+            self.apiClient.cancel_all_open_orders(self.symbols)
         
         while True:
             self.check_special_order_status()
-            new_trades = self.apiClient.get_all_new_trades(last_ids)
+            new_trades = self.apiClient.get_all_new_trades(self.last_ids)
             if self.are_there_new_trades(new_trades):
                 self.view.print_new_trades(new_trades)
                 #self.update_asset_quantities(new_trades)
 
-            new_prices = self.apiClient.get_all_prices(symbols)
+            new_prices = self.apiClient.get_all_prices(self.symbols)
 
             new_orders = self.analyzer.calc_all_orders(
-                self.model.data['pairs'], 
+                self.pairs, 
                 new_prices
             )
             
             self.view.print_new_orders(new_orders)
             
             print_timestamped_message('SENDING BUY AND SELL ORDERS')
-            if self.model.data['config']['state'] == 'TRADE':
+            if self.bot_status == 'TRADE':
                 self.apiClient.send_all_orders(new_orders)
 
             self.analyzer.special_orders = False
@@ -424,8 +453,8 @@ class ShannonsDemon:
             
             print_and_sleep(float(self.model.data['config']['delay_after_send']))        
             print_timestamped_message('CANCELLING ALL ORDERS')
-            if self.model.data['config']['state'] == 'TRADE':
-                self.apiClient.cancel_all_open_orders(symbols)
+            if self.bot_status == 'TRADE':
+                self.apiClient.cancel_all_open_orders(self.symbols)
             print_and_sleep(float(self.model.data['config']['delay_after_cancel']))
 
 
