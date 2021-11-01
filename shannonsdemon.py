@@ -192,7 +192,7 @@ class BinanceClient:
             self.send_sell_order(orders['sell_order'])
 
 
-class ConfigurationData():
+class Model():
     def __init__(self):
         self.config = {}
 
@@ -357,7 +357,7 @@ class ShannonsDemon:
         self.apiClient = BinanceClient(publicKey, privateKey)
         self.view = View()
         self.analyzer = Analyzer(special_orders=False)
-        self.configData = ConfigurationData()
+        self.configData = Model()
 
     def check_special_order_status(self):
         rebalanceIntervalSeconds = float(self.marketsConfig['rebalance_interval_sec'])        
