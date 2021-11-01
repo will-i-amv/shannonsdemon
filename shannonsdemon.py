@@ -370,6 +370,14 @@ class ShannonsDemon:
         return self.model.data['config']['state']
 
     @property
+    def delay_after_send_orders(self):
+        return self.model.data['config']['delay_after_send']
+
+    @property
+    def delay_after_cancel_orders(self):
+        return self.model.data['config']['delay_after_cancel']
+
+    @property
     def pairs(self):
         return self.model.data['pairs']
     
@@ -439,11 +447,11 @@ class ShannonsDemon:
             
             #self.model.write_config()
             
-            print_and_sleep(float(self.model.data['config']['delay_after_send']))        
+            print_and_sleep(self.delay_after_send_orders)        
             print_timestamped_message('CANCELLING ALL ORDERS')
             if self.bot_status == 'TRADE':
                 self.apiClient.cancel_all_open_orders(self.symbols)
-            print_and_sleep(float(self.model.data['config']['delay_after_cancel']))
+            print_and_sleep(self.delay_after_cancel_orders)
 
 
 if __name__ == '__main__':
