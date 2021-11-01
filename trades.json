@@ -1,20 +1,20 @@
-[
-    {
+{
+    "BNBUSDT": {
         "id": 440588218,
         "orderId": 3214874302,
-        "symbol": "BNBUSDT",
         "price": 500.9,
         "baseAssetQty": 0.127,
         "quoteAssetQty": 63.6143,
+        "time": 1635506701381.0,
         "isBuyer": false
     },
-    {
+    "ETHUSDT": {
         "id": 648424132,
         "orderId": 6393764866,
-        "symbol": "ETHUSDT",
         "price": 4250.0,
         "baseAssetQty": 0.0235,
         "quoteAssetQty": 99.875,
+        "time": 1635207853681.0,
         "isBuyer": false
     }
-]
+}
