@@ -193,16 +193,28 @@ class BinanceClient:
 
 
 class Model():
-    def __init__(self):
-        self.config = {}
+    def __init__(self, filenames):
+        self.data = {}
+        self.filenames = filenames
+        self.read_config()
 
-    def read_config(self, filename):
-        with open(filename) as fh:
-            self.config = json.load(fh)
+    def read_config(self):
+        with \
+            open(self.filenames['config']) as fh1, \
+            open(self.filenames['pairs']) as fh2, \
+            open(self.filenames['trades']) as fh3:
+            self.data['config'] = json.load(fh1)
+            self.data['pairs'] = json.load(fh2)
+            self.data['trades'] = json.load(fh3)
     
-    def write_config(self, filename):
-        with open(filename, 'w') as fh:
-            json.dump(self.config, fh)
+    def write_config(self):
+        with \
+            open(self.filenames['config'], 'w') as fh1, \
+            open(self.filenames['pairs'], 'w') as fh2, \
+            open(self.filenames['trades'], 'w') as fh3:
+            json.dump(self.data['config'], fh1)
+            json.dump(self.data['pairs'], fh2)
+            json.dump(self.data['trades'], fh3)
 
 
 class View:
@@ -345,16 +357,15 @@ class Analyzer:
 
 
 class ShannonsDemon:
-    def __init__(self, publicKey, privateKey):
-        self.marketsConfig = {}
+    def __init__(self, publicKey, privateKey, filenames):
         self.lastRebalanceTime = time.time()
         self.apiClient = BinanceClient(publicKey, privateKey)
         self.view = View()
         self.analyzer = Analyzer(special_orders=False)
-        self.configData = Model()
+        self.model = Model(filenames)
 
     def check_special_order_status(self):
-        rebalanceIntervalSeconds = float(self.marketsConfig['rebalance_interval_sec'])        
+        rebalanceIntervalSeconds = float(self.model.data['config']['delay_after_rebalance'])        
         if time.time() > self.lastRebalanceTime + rebalanceIntervalSeconds:
             self.lastRebalanceTime = time.time()
             self.analyzer.special_orders = True
@@ -376,18 +387,15 @@ class ShannonsDemon:
                     self.pairs[symbol]['baseAssetQty'] -= trade['baseAssetQty']
                     self.pairs[symbol]['quoteAssetQty'] += trade['quoteAssetQty']
 
-    def run(self, filename):
+    def run(self):
         symbols = ['BNBUSDT', 'ETHUSDT']
         last_ids = {'BNBUSDT': 418495317, 'ETHUSDT': 634206855}
-
-        self.configData.read_config(filename) # Read initial config
-        self.marketsConfig  = self.configData.config
 
         print_timestamped_message('INITIALIZING')
         formats = self.apiClient.get_pair_formats(symbols)
 
         print_timestamped_message('CANCELLING ALL ORDERS')
-        if self.marketsConfig['state'] == 'TRADE':
+        if self.model.data['config']['state'] == 'TRADE':
             self.apiClient.cancel_all_open_orders(symbols)
         
         while True:
@@ -400,26 +408,25 @@ class ShannonsDemon:
             new_prices = self.apiClient.get_all_prices(symbols)
 
             new_orders = self.analyzer.calc_all_orders(
-                self.marketsConfig['pairs'], 
+                self.model.data['pairs'], 
                 new_prices
             )
             
             self.view.print_new_orders(new_orders)
             
             print_timestamped_message('SENDING BUY AND SELL ORDERS')
-            if self.marketsConfig['state'] == 'TRADE':
+            if self.model.data['config']['state'] == 'TRADE':
                 self.apiClient.send_all_orders(new_orders)
 
             self.analyzer.special_orders = False
             
-            #self.configData.config = self.marketsConfig # Write updated config            
-            #self.configData.write_config(filename)
+            #self.model.write_config()
             
-            print_and_sleep(float(self.marketsConfig['sleep_seconds_after_send_orders']))        
+            print_and_sleep(float(self.model.data['config']['delay_after_send']))        
             print_timestamped_message('CANCELLING ALL ORDERS')
-            if self.marketsConfig['state'] == 'TRADE':
+            if self.model.data['config']['state'] == 'TRADE':
                 self.apiClient.cancel_all_open_orders(symbols)
-            print_and_sleep(float(self.marketsConfig['sleep_seconds_after_cancel_orders']))
+            print_and_sleep(float(self.model.data['config']['delay_after_cancel']))
 
 
 if __name__ == '__main__':
@@ -427,5 +434,10 @@ if __name__ == '__main__':
     bot = ShannonsDemon(
         publicKey=os.environ['BIN_PUB_KEY'],
         privateKey = os.environ['BIN_PRIV_KEY'],
+        filenames={
+            'config': 'config.json', 
+            'pairs': 'pairs.json', 
+            'trades': 'trades.json',
+        }
     )
-    bot.run(filename='config.json')
+    bot.run()
