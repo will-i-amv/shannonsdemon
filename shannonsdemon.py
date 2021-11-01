@@ -151,21 +151,22 @@ class BinanceClient:
         )
         return [
             {
-                'time': trade['time'],
                 'id': trade['id'],
                 'orderId': trade['orderId'],
+                'symbol': trade['symbol'],
                 'price': float(trade['price']),
                 'baseAssetQty': float(trade['qty']),
                 'quoteAssetQty': float(trade['quoteQty']),
+                'time': trade['time'],
                 'isBuyer': trade['isBuyer'],
             } 
             for trade in trades
         ]
 
-    def get_all_new_trades(self, last_ids):
+    def get_all_new_trades(self, symbols, last_ids):
         return {
             symbol: self._get_new_trades(symbol, last_id)
-            for symbol, last_id in last_ids.items()
+            for symbol, last_id in zip(symbols, last_ids)
         }
 
     @handle_api_errors(message='UNABLE TO SEND BUY ORDER')
@@ -429,7 +430,7 @@ class ShannonsDemon:
         
         while True:
             self.check_special_order_status()
-            new_trades = self.apiClient.get_all_new_trades(self.last_ids)
+            new_trades = self.apiClient.get_all_new_trades(self.symbols, self.last_ids)
             if self.are_there_new_trades(new_trades):
                 self.view.print_new_trades(new_trades)
                 #self.update_asset_quantities(new_trades)
