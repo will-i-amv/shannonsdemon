@@ -197,18 +197,12 @@ class Model():
         self.config = {}
 
     def read_config(self, filename):
-        try:
-            with open(filename) as f:
-                self.config = json.load(f)
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO READ FROM CONFIG FILE, BECAUSE: {}'.format(e))
-
+        with open(filename) as fh:
+            self.config = json.load(fh)
+    
     def write_config(self, filename):
-        try:
-            with open(filename, 'w') as f:
-                json.dump(self.config, f)
-        except Exception as e:
-            print_timestamped_message('ERROR: UNABLE TO WRITE TO CONFIG FILE, BECAUSE: {}'.format(e))
+        with open(filename, 'w') as fh:
+            json.dump(self.config, fh)
 
 
 class View:
