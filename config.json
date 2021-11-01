@@ -1,38 +1,6 @@
 {
-	"state": "TEST",
-	"sleep_seconds_after_send_orders": 300,
-	"sleep_seconds_after_cancel_orders": 60,
-	"rebalance_interval_sec": 1080,
-	"pairs": {
-        "BNBUSDT": {
-            "baseAssetQty": 0.73,
-            "quoteAssetQty": 200,
-            "buyPercentage": 0.9,
-            "sellPercentage": 1.1,
-            "tickSizeFormat": "{:.2f}",
-            "stepSizeFormat": "{:.4f}",
-            "tickSize": 0.01,
-            "stepSize": 0.0001
-        },
-        "ETHUSDT": {
-            "baseAssetQty": 0.103,
-            "quoteAssetQty": 200,
-            "buyPercentage": 0.9,
-            "sellPercentage": 1.1,
-            "tickSizeFormat": "{:.2f}",
-            "stepSizeFormat": "{:.4f}",
-            "tickSize": 0.01,
-            "stepSize": 0.0001
-        },
-        "LTCUSDT": {
-            "baseAssetQty": 1.62,
-            "quoteAssetQty": 200,
-            "buyPercentage": 0.9,
-            "sellPercentage": 1.1,
-            "tickSizeFormat": "{:.2f}",
-            "stepSizeFormat": "{:.4f}",
-            "tickSize": 0.01,
-            "stepSize": 0.0001
-        }
-    }    
+    "state": "TEST",
+    "interval_after_send": 300,
+    "interval_after_cancel": 60,
+    "rebalance_interval": 1080
 }

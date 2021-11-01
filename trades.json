@@ -1,0 +1,42 @@
+[
+    {
+        "id": 264547574,
+        "orderId": 2105489908,
+        "symbol": "BNBUSDT",
+        "price": 645.00000000,
+        "qty": 3.10000000,
+        "quoteQty": 1999.50000000,
+        "time": 1620303232073,
+        "isBuyer": true
+    },
+    {
+        "id": 264547575,
+        "orderId": 2105489909,
+        "symbol": "BNBUSDT",
+        "price": 645.00000000,
+        "qty": 3.10000000,
+        "quoteQty": 1999.50000000,
+        "time": 1620303232073,
+        "isBuyer": true
+    },        
+    {
+        "id": 264547576,
+        "orderId": 2105489908,
+        "symbol": "ETHUSDT",
+        "price": 645.00000000,
+        "qty": 3.10000000,
+        "quoteQty": 1999.50000000,
+        "time": 1620303232073,
+        "isBuyer": true
+    },
+    {
+        "id": 264547577,
+        "orderId": 2105489909,
+        "symbol": "ETHUSDT",
+        "price": 645.00000000,
+        "qty": 3.10000000,
+        "quoteQty": 1999.50000000,
+        "time": 1620303232073,
+        "isBuyer": true
+    }
+]
