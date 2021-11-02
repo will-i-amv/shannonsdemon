@@ -8,8 +8,8 @@ from analyzer import Analyzer
 
 
 def print_timestamped_message(message):
-    timeFormat = "%a, %d %b %Y %H:%M:%S"
-    timestamp = time.strftime(timeFormat, time.gmtime())
+    time_format = "%a, %d %b %Y %H:%M:%S"
+    timestamp = time.strftime(time_format, time.gmtime())
     print(timestamp + '    ' + message)
 
 
@@ -19,9 +19,9 @@ def print_and_sleep(seconds):
 
 
 class ShannonsDemon:
-    def __init__(self, publicKey, privateKey, filenames):
-        self.lastRebalanceTime = time.time()
-        self.apiClient = BinanceClient(publicKey, privateKey)
+    def __init__(self, public_key, private_key, filenames):
+        self.rebalance_time = time.time()
+        self.client = BinanceClient(public_key, private_key)
         self.view = View()
         self.analyzer = Analyzer(special_orders=False)
         self.model = Model(filenames)
@@ -39,6 +39,10 @@ class ShannonsDemon:
         return self.model.data['config']['delay_after_cancel']
 
     @property
+    def delay_after_rebalance(self):
+        return self.model.data['config']['delay_after_rebalance']
+
+    @property
     def pairs(self):
         return self.model.data['pairs']
     
@@ -54,9 +58,8 @@ class ShannonsDemon:
         ]
 
     def check_special_order_status(self):
-        rebalanceIntervalSeconds = float(self.model.data['config']['delay_after_rebalance'])        
-        if time.time() > self.lastRebalanceTime + rebalanceIntervalSeconds:
-            self.lastRebalanceTime = time.time()
+        if time.time() > self.rebalance_time + self.delay_after_rebalance:
+            self.rebalance_time = time.time()
             self.analyzer.special_orders = True
 
     def are_there_new_trades(self, all_trades):
@@ -78,20 +81,20 @@ class ShannonsDemon:
 
     def run(self):
         print_timestamped_message('INITIALIZING')
-        #formats = self.apiClient.get_pair_formats(self.symbols)
+        #formats = self.client.get_pair_formats(self.symbols)
 
         print_timestamped_message('CANCELLING ALL ORDERS')
         if self.bot_status == 'TRADE':
-            self.apiClient.cancel_all_open_orders(self.symbols)
+            self.client.cancel_all_open_orders(self.symbols)
         
         while True:
             self.check_special_order_status()
-            new_trades = self.apiClient.get_all_new_trades(self.trades)
+            new_trades = self.client.get_all_new_trades(self.trades)
             if self.are_there_new_trades(new_trades):
                 self.view.print_new_trades(new_trades)
                 #self.update_asset_quantities(new_trades)
 
-            new_prices = self.apiClient.get_all_prices(self.symbols)
+            new_prices = self.client.get_all_prices(self.symbols)
 
             new_orders = self.analyzer.calc_all_orders(
                 self.pairs, 
@@ -102,7 +105,7 @@ class ShannonsDemon:
             
             print_timestamped_message('SENDING BUY AND SELL ORDERS')
             if self.bot_status == 'TRADE':
-                self.apiClient.send_all_orders(new_orders)
+                self.client.send_all_orders(new_orders)
 
             self.analyzer.special_orders = False
             
@@ -111,15 +114,15 @@ class ShannonsDemon:
             print_and_sleep(self.delay_after_send_orders)        
             print_timestamped_message('CANCELLING ALL ORDERS')
             if self.bot_status == 'TRADE':
-                self.apiClient.cancel_all_open_orders(self.symbols)
+                self.client.cancel_all_open_orders(self.symbols)
             print_and_sleep(self.delay_after_cancel_orders)
 
 
 if __name__ == '__main__':
     load_dotenv()
     bot = ShannonsDemon(
-        publicKey=os.environ['BIN_PUB_KEY'],
-        privateKey = os.environ['BIN_PRIV_KEY'],
+        public_key=os.environ['BIN_PUB_KEY'],
+        private_key = os.environ['BIN_PRIV_KEY'],
         filenames={
             'config': 'config.json', 
             'pairs': 'pairs.json', 
