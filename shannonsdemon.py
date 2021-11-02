@@ -69,15 +69,16 @@ class ShannonsDemon:
             ]
         )
 
-    def update_asset_quantities(self, all_trades):
-        for symbol, trades in all_trades.items():
-            for trade in trades:
-                if trade['isBuyer']:
-                    self.pairs[symbol]['baseAssetQty'] += trade['baseAssetQty']
-                    self.pairs[symbol]['quoteAssetQty'] -= trade['quoteAssetQty']
+    def update_asset_quantities(self, new_trades):
+        for symbol, new_trades_by_symbol in new_trades.items():            
+            for new_trade in new_trades_by_symbol:
+                if new_trade['isBuyer']:
+                    self.pairs[symbol]['baseAssetQty'] += new_trade['baseAssetQty']
+                    self.pairs[symbol]['quoteAssetQty'] -= new_trade['quoteAssetQty']
                 else:
-                    self.pairs[symbol]['baseAssetQty'] -= trade['baseAssetQty']
-                    self.pairs[symbol]['quoteAssetQty'] += trade['quoteAssetQty']
+                    self.pairs[symbol]['baseAssetQty'] -= new_trade['baseAssetQty']
+                    self.pairs[symbol]['quoteAssetQty'] += new_trade['quoteAssetQty']
+            self.trades[symbol] = new_trades_by_symbol
 
     def run(self):
         print_timestamped_message('INITIALIZING')
@@ -89,10 +90,12 @@ class ShannonsDemon:
         
         while True:
             self.check_special_order_status()
+            
             new_trades = self.client.get_all_new_trades(self.trades)
             if self.are_there_new_trades(new_trades):
                 self.view.print_new_trades(new_trades)
-                #self.update_asset_quantities(new_trades)
+                self.update_asset_quantities(new_trades)
+                self.model.write_config()
 
             new_prices = self.client.get_all_prices(self.symbols)
 
@@ -108,9 +111,7 @@ class ShannonsDemon:
                 self.client.send_all_orders(new_orders)
 
             self.analyzer.special_orders = False
-            
-            #self.model.write_config()
-            
+                        
             print_and_sleep(self.delay_after_send_orders)        
             print_timestamped_message('CANCELLING ALL ORDERS')
             if self.bot_status == 'TRADE':
