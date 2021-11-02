@@ -2,6 +2,34 @@ class View:
     def __init__(self):
         pass
 
+    def input_bot_parameters(self):
+        pairs = {}
+        print(f"Enter the Base Asset parameters:\n")
+        while True: 
+            base_asset = input(f"Base Asset: ")
+            base_asset_qty = input(f"Base Asset Quantity: ")
+            quote_asset_qty = input(f"Quote Asset Quantity: ")
+            buy_percentage = input(f"Buy percentage: ")
+            sell_percentage = input(f"Sell percentage: ")
+            symbol = str(f'{base_asset}USDT')
+            pairs[symbol] = { 
+                'baseAssetQty': float(base_asset_qty),
+                'quoteAssetQty': float(quote_asset_qty),
+                'buyPercentage': float(buy_percentage),
+                'sellPercentage': float(sell_percentage),
+            }
+            exit_ = input(f"Exit? (Type 'y' to exit): ")
+            if exit_ == 'y':
+                break
+        while True: 
+            print(f"Enter the bot's status (Type 'e' to exit):\n")
+            status = input("Status:")
+            if status not in ['TEST', 'TRADE']:
+                print("Invalid Status")
+            else:
+                break
+        return pairs, status
+
     def print_new_trades(self, all_trades):
         for symbol, trades in all_trades.items():
             print(f'NEW EXECUTED TRADES FOR THE PAIR {symbol}:')
