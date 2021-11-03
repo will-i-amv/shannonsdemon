@@ -1,4 +1,22 @@
 import json
+import functools
+
+
+def handle_file_errors(message):
+    def method_wrapper(method):
+        @functools.wraps(method)
+        def _handle_file_errors(self, *args, **kwargs):
+            try:
+                method(self, *args, **kwargs)
+            except Exception as e:
+                print(
+                    f"""
+                    ERROR: {message}.\n 
+                    REASON: {e}
+                    """
+                )
+        return _handle_file_errors
+    return method_wrapper
 
 
 class Model():
@@ -7,6 +25,7 @@ class Model():
         self.filenames = filenames
         self.read_config()
     
+    @handle_file_errors(message='UNABLE TO READ FROM CONFIG FILES')
     def read_config(self):
         with \
             open(self.filenames['config']) as fh1, \
@@ -16,6 +35,7 @@ class Model():
             self.data['pairs'] = json.load(fh2)
             self.data['trades'] = json.load(fh3)
     
+    @handle_file_errors(message='UNABLE TO WRITE TO CONFIG FILES')
     def write_config(self):
         with \
             open(self.filenames['config'], 'w') as fh1, \
