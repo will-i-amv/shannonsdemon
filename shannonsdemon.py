@@ -57,6 +57,17 @@ class ShannonsDemon:
             for symbol in self.pairs.keys()
         ]
 
+    @property
+    def last_trades(self):
+        return {
+            symbol: sorted(
+                last_trades, 
+                key=lambda x: x['id'],
+                reverse=True
+            )[0]
+            for symbol, last_trades in self.trades.items()
+        }
+
     def check_special_order_status(self):
         if time.time() > self.rebalance_time + self.delay_after_rebalance:
             self.rebalance_time = time.time()
@@ -91,7 +102,7 @@ class ShannonsDemon:
         while True:
             self.check_special_order_status()
             
-            new_trades = self.client.get_all_new_trades(self.trades)
+            new_trades = self.client.get_all_new_trades(self.last_trades)
             if self.are_there_new_trades(new_trades):
                 self.view.print_new_trades(new_trades)
                 self.update_asset_quantities(new_trades)
