@@ -1,6 +1,3 @@
-from time import thread_time
-
-
 import time
 
 
