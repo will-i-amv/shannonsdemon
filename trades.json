@@ -1,20 +1,60 @@
 {
-    "BNBUSDT": {
-        "id": 440588218,
-        "orderId": 3214874302,
-        "price": 500.9,
-        "baseAssetQty": 0.127,
-        "quoteAssetQty": 63.6143,
-        "time": 1635506701381.0,
-        "isBuyer": false
-    },
-    "ETHUSDT": {
-        "id": 648424132,
-        "orderId": 6393764866,
-        "price": 4250.0,
-        "baseAssetQty": 0.0235,
-        "quoteAssetQty": 99.875,
-        "time": 1635207853681.0,
-        "isBuyer": false
-    }
+    "BNBUSDT": [
+        {
+            "id": 440588218,
+            "orderId": 3214874302,
+            "price": 500.9,
+            "baseAssetQty": 0.127,
+            "quoteAssetQty": 63.6143,
+            "time": 1635506701381,
+            "isBuyer": false
+        },
+        {
+            "id": 441009768,
+            "orderId": 3224440551,
+            "price": 525,
+            "baseAssetQty": 0.19,
+            "quoteAssetQty": 99.75,
+            "time": 1635524787119,
+            "isBuyer": false
+        },
+        {
+            "id": 444984752,
+            "orderId": 3243301266,
+            "price": 555,
+            "baseAssetQty": 0.18,
+            "quoteAssetQty": 99.9,
+            "time": 1635862838653,
+            "isBuyer": false
+        }
+    ],
+    "ETHUSDT": [
+        {
+            "id": 648424132,
+            "orderId": 6393764866,
+            "price": 4250,
+            "baseAssetQty": 0.0235,
+            "quoteAssetQty": 99.875,
+            "time": 1635207853681,
+            "isBuyer": false
+        },
+        {
+            "id": 654262901,
+            "orderId": 6462007594,
+            "price": 4318.96,
+            "baseAssetQty": 0.0283,
+            "quoteAssetQty": 122.226568,
+            "time": 1635510075950,
+            "isBuyer": false
+        },
+        {
+            "id": 659494369,
+            "orderId": 6507928547,
+            "price": 4500,
+            "baseAssetQty": 0.0222,
+            "quoteAssetQty": 99.9,
+            "time": 1635867043306,
+            "isBuyer": false
+        }
+    ]
 }
