@@ -1,3 +1,9 @@
+from time import thread_time
+
+
+import time
+
+
 class View:
     def __init__(self):
         pass
@@ -29,6 +35,11 @@ class View:
             else:
                 break
         return pairs, status
+
+    def print_timestamped_message(self, message):
+        time_format = "%a, %d %b %Y %H:%M:%S"
+        timestamp = time.strftime(time_format, time.gmtime())
+        print(timestamp + '    ' + message)
 
     def print_new_trades(self, all_trades):
         for symbol, trades in all_trades.items():

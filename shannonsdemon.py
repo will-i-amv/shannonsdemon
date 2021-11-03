@@ -7,12 +7,6 @@ from view import View
 from analyzer import Analyzer
 
 
-def print_timestamped_message(message):
-    time_format = "%a, %d %b %Y %H:%M:%S"
-    timestamp = time.strftime(time_format, time.gmtime())
-    print(timestamp + '    ' + message)
-
-
 def print_and_sleep(seconds):
     print('SLEEP FOR {} SECONDS'.format(seconds))
     time.sleep(seconds)
@@ -122,39 +116,39 @@ class ShannonsDemon:
             self.trades[symbol] = new_trades_by_symbol
 
     def run(self):
-        print_timestamped_message('INITIALIZING')
+        self.view.print_timestamped_message('INITIALIZING')
         self.check_if_initialized()
 
-        print_timestamped_message('CANCELLING ALL ORDERS')
+        self.view.print_timestamped_message('CANCELLING ALL PENDING ORDERS')
         if self.bot_status == 'TRADE':
             self.client.cancel_all_open_orders(self.symbols)
         
         while True:
             self.check_special_order_status()
             
+            self.view.print_timestamped_message('GETTING NEW EXECUTED TRADES')
             new_trades = self.client.get_all_new_trades(self.last_trades)
             if self.are_there_new_trades(new_trades):
                 self.view.print_new_trades(new_trades)
                 self.update_asset_quantities(new_trades)
                 self.model.write_config()
 
+            self.view.print_timestamped_message('CREATING BUY AND SELL ORDERS')
             new_prices = self.client.get_all_prices(self.symbols)
-
             new_orders = self.analyzer.calc_all_orders(
                 self.pairs, 
                 new_prices
             )
             
+            self.view.print_timestamped_message('SENDING BUY AND SELL ORDERS')
             self.view.print_new_orders(new_orders)
-            
-            print_timestamped_message('SENDING BUY AND SELL ORDERS')
             if self.bot_status == 'TRADE':
                 self.client.send_all_orders(new_orders)
 
             self.analyzer.special_orders = False
                         
             print_and_sleep(self.delay_after_send_orders)        
-            print_timestamped_message('CANCELLING ALL ORDERS')
+            self.view.print_timestamped_message('CANCELLING ALL PENDING ORDERS')
             if self.bot_status == 'TRADE':
                 self.client.cancel_all_open_orders(self.symbols)
             print_and_sleep(self.delay_after_cancel_orders)
