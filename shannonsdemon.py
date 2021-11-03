@@ -7,11 +7,6 @@ from view import View
 from analyzer import Analyzer
 
 
-def print_and_sleep(seconds):
-    print('SLEEP FOR {} SECONDS'.format(seconds))
-    time.sleep(seconds)
-
-
 class ShannonsDemon:
     def __init__(self, public_key, private_key, filenames):
         self.rebalance_time = time.time()
@@ -147,11 +142,19 @@ class ShannonsDemon:
 
             self.analyzer.special_orders = False
                         
-            print_and_sleep(self.delay_after_send_orders)        
+            self.view.print_timestamped_message(
+                f'SLEEPING FOR {self.delay_after_send_orders} SECONDS'
+            )
+            time.sleep(self.delay_after_send_orders)
+
             self.view.print_timestamped_message('CANCELLING ALL PENDING ORDERS')
             if self.bot_status == 'TRADE':
                 self.client.cancel_all_open_orders(self.symbols)
-            print_and_sleep(self.delay_after_cancel_orders)
+
+            self.view.print_timestamped_message(
+                f'SLEEPING FOR {self.delay_after_cancel_orders} SECONDS AGAIN'
+            )
+            time.sleep(self.delay_after_cancel_orders)
 
 
 if __name__ == '__main__':
