@@ -80,6 +80,36 @@ class ShannonsDemon:
             ]
         )
 
+    def check_if_initialized(self):
+        if self.model.data:
+            return
+        else:
+            self._initialize()
+            self.model.write_config()
+
+    def _initialize(self):
+        pairs, status = self.view.input_bot_parameters()
+        self.model.data['config'] = {
+            "state": f"{status}",
+            "delay_after_send": 300,
+            "delay_after_cancel": 60,
+            "delay_after_rebalance": 1080
+        }
+        formats = self.client.get_pair_formats(pairs)
+        self.model.data['pairs'] = {
+            symbol: {**pair, **format_}
+            for symbol, pair, format_ in zip(
+                pairs.keys(), 
+                pairs.values(),
+                formats.values(),
+            )
+        }
+        last_trades = {
+            symbol: {"id": 0}
+            for symbol in self.symbols
+        }
+        self.model.data['trades'] = self.client.get_all_new_trades(last_trades)
+
     def update_asset_quantities(self, new_trades):
         for symbol, new_trades_by_symbol in new_trades.items():            
             for new_trade in new_trades_by_symbol:
@@ -93,7 +123,7 @@ class ShannonsDemon:
 
     def run(self):
         print_timestamped_message('INITIALIZING')
-        #formats = self.client.get_pair_formats(self.symbols)
+        self.check_if_initialized()
 
         print_timestamped_message('CANCELLING ALL ORDERS')
         if self.bot_status == 'TRADE':
