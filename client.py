@@ -138,7 +138,6 @@ class BinanceClient:
             {
                 'id': trade['id'],
                 'orderId': trade['orderId'],
-                'symbol': trade['symbol'],
                 'price': float(trade['price']),
                 'baseAssetQty': float(trade['qty']),
                 'quoteAssetQty': float(trade['quoteQty']),
