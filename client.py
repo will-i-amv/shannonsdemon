@@ -138,7 +138,6 @@ class BinanceClient:
             {
                 'id': trade['id'],
                 'orderId': trade['orderId'],
-                'symbol': trade['symbol'],
                 'price': float(trade['price']),
                 'baseAssetQty': float(trade['qty']),
                 'quoteAssetQty': float(trade['quoteQty']),
@@ -155,24 +154,26 @@ class BinanceClient:
         }
 
     @handle_api_errors(message='UNABLE TO SEND BUY ORDER')
-    def send_buy_order(self, order):
+    def _send_buy_order(self, order):
         self.client.order_limit_buy(
-            symbol=order['symbol'], 
+            symbol=order['symbol'],
             quantity=order['qty'],
             price=order['price'],
-            newClientOrderId=order['newClientOrderId']
+            newClientOrderId=order['orderId']
         )
 
     @handle_api_errors(message='UNABLE TO SEND SELL ORDER')
-    def send_sell_order(self, order):
+    def _send_sell_order(self, order):
         self.client.order_limit_sell(
             symbol=order['symbol'],
             quantity=order['qty'],
             price=order['price'],
-            newClientOrderId=order['newClientOrderId']
+            newClientOrderId=order['orderId']
         )
 
     def send_all_orders(self, all_orders):
-        for orders in all_orders.values():
-            self.send_buy_order(orders['buy_order'])
-            self.send_sell_order(orders['sell_order'])
+        for order in all_orders:
+            if order['orderId'][:5] == 'SHN-B':
+                self.client._send_buy_order(order)
+            else:
+                self.client._send_sell_order(order)
