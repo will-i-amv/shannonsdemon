@@ -11,17 +11,13 @@ class Analyzer:
     def _order_timestamp(self):
         return str(int(time.time() - self.initial_time))
     
-    def _calc_percentages(self, buy_percentage, sell_percentage, away_from_mid_price):
-        if self.special_orders:
-            if away_from_mid_price >= 0.05:
-                bid_percentage = min(0.95, buy_percentage)
-                ask_percentage = max(1.05, 1.0 + away_from_mid_price)
-            elif away_from_mid_price <= -0.05:
-                bid_percentage = min(0.95, 1.0 + away_from_mid_price)
-                ask_percentage = max(1.05, sell_percentage)
-            else:
-                bid_percentage = min(0.95, buy_percentage)
-                ask_percentage = max(1.05, sell_percentage)
+    def _calc_percentages(self, buy_percentage, sell_percentage, away_from_midprice):
+        if self.special_orders and away_from_midprice >= 0.05:
+            bid_percentage = min(0.95, buy_percentage)
+            ask_percentage = max(1.05, 1.0 + away_from_midprice)
+        elif self.special_orders and away_from_midprice <= -0.05:
+            bid_percentage = min(0.95, 1.0 + away_from_midprice)
+            ask_percentage = max(1.05, sell_percentage)
         else:
             bid_percentage = min(0.95, buy_percentage)
             ask_percentage = max(1.05, sell_percentage)
@@ -49,17 +45,16 @@ class Analyzer:
     def _calc_orders(self, symbol, pair, price):
         fair_price = pair['quoteAssetQty'] / pair['baseAssetQty']
         mid_price = 0.5*(price['bidPrice'] + price['askPrice'])
-        away_from_mid_price = (mid_price - fair_price) / fair_price
         percentages = self._calc_percentages(
             buy_percentage=pair['buyPercentage'], 
             sell_percentage=pair['sellPercentage'], 
-            away_from_mid_price=away_from_mid_price, 
+            away_from_midprice=(mid_price-fair_price)/fair_price, 
         )
         new_prices = self._calc_new_prices(
             percentages=percentages, 
             fair_price=fair_price, 
             tick_size=pair['tickSize'], 
-            bid_price=price['bidPrice'], 
+            bid_price=price['bidPrice'],    
             ask_price=price['askPrice'],
         )
         new_quantities = self._calc_new_quantities(
