@@ -54,25 +54,15 @@ class View:
                 )
     
     def print_new_orders(self, all_orders):
-        for symbol, orders in all_orders.items():
-            print(f'SENDING NEW ORDERS FOR THE PAIR {symbol}:')
-            print(f'BUY ORDERS:')
+        print(f'NEW ORDERS:')
+        for order in all_orders:
             print(
-                f'''
+                f"""
                 *************************************
-                Type: Buy Order
-                Price: {orders['buy_order']['price']}
-                Quantity: {orders['buy_order']['qty']}
+                Symbol: {order['symbol']}
+                Type: {'Buy Order' if order['orderId'][:5] == 'SHN-B' else 'Sell Order'}
+                Price: {order['price']}
+                Quantity: {order['qty']}
                 *************************************
-                '''
-            )
-            print(f'SELL ORDERS:')
-            print(
-                f'''
-                *************************************
-                Type: Sell Order
-                Price: {orders['sell_order']['price']}
-                Quantity: {orders['sell_order']['qty']}
-                *************************************
-                '''
+                """
             )
