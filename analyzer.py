@@ -1,4 +1,5 @@
 import time
+import itertools
 
 
 class Analyzer:
@@ -72,25 +73,23 @@ class Analyzer:
             'symbol': symbol,
             'qty': step_size_format.format(new_quantities['bidQty']),
             'price': tick_size_format.format(new_prices['bidPrice']),
-            'newClientOrderId': f'SHN-B-{symbol}-{self._order_timestamp}',
+            'orderId': f'SHN-B-{symbol}-{self._order_timestamp}',
         }
         sell_order = {
             'symbol': symbol,
             'qty': step_size_format.format(new_quantities['askQty']),
             'price': tick_size_format.format(new_prices['askPrice']),
-            'newClientOrderId': f'SHN-S-{symbol}-{self._order_timestamp}',
+            'orderId': f'SHN-S-{symbol}-{self._order_timestamp}',
         }
-        return {
-            'buy_order': buy_order,
-            'sell_order': sell_order,
-        }
+        return [buy_order, sell_order]
 
     def calc_all_orders(self, pairs, prices):
-        return {
-            symbol: self._calc_orders(symbol, pair, price)
+        orders = [
+            self._calc_orders(symbol, pair, price)
             for symbol, pair, price in zip(
                 pairs.keys(), 
                 pairs.values(), 
                 prices.values()
             )
-        }
+        ]
+        return list(itertools.chain.from_iterable(orders))
