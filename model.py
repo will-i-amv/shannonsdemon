@@ -1,22 +1,19 @@
 import json
 import functools
+from decorator import decorator
 
 
-def handle_file_errors(message):
-    def method_wrapper(method):
-        @functools.wraps(method)
-        def _handle_file_errors(self, *args, **kwargs):
-            try:
-                method(self, *args, **kwargs)
-            except Exception as e:
-                print(
-                    f"""
-                    ERROR: {message}.\n 
-                    REASON: {e}
-                    """
-                )
-        return _handle_file_errors
-    return method_wrapper
+@decorator
+def handle_file_errors(method, message='', *args, **kwargs):
+    try:
+        method(*args, **kwargs)
+    except Exception as e:
+        print(
+            f"""
+            ERROR: {message}.\n 
+            REASON: {e}
+            """
+        )
 
 
 class Model():
@@ -34,7 +31,7 @@ class Model():
             self.data['config'] = json.load(fh1)
             self.data['pairs'] = json.load(fh2)
             self.data['trades'] = json.load(fh3)
-    
+
     @handle_file_errors(message='UNABLE TO WRITE TO CONFIG FILES')
     def write_config(self):
         with \
