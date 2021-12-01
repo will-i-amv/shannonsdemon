@@ -1,5 +1,5 @@
 import time
-import itertools
+from itertools import chain
 
 
 class Analyzer:
@@ -87,4 +87,4 @@ class Analyzer:
                 prices.values()
             )
         ]
-        return list(itertools.chain.from_iterable(orders))
+        return list(chain.from_iterable(orders))
