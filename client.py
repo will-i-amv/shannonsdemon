@@ -1,24 +1,21 @@
 import functools
 from binance.client import Client
+from decorator import decorator
 
 
-def handle_api_errors(message):
-    def method_wrapper(method):
-        @functools.wraps(method)
-        def _handle_api_errors(self, *args, **kwargs):
-            try:
-                result = method(self, *args, **kwargs)
-            except Exception as e:
-                print(
-                    f"""
-                    ERROR: {message}.\n 
-                    REASON: {e}
-                    """
-                )
-            else:
-                return result
-        return _handle_api_errors
-    return method_wrapper
+@decorator
+def handle_api_errors(method, message='', *args, **kwargs):
+    try:
+        result = method(*args, **kwargs)
+    except Exception as e:
+        print(
+            f"""
+            ERROR: {message}.\n 
+            REASON: {e}
+            """
+        )
+    else:
+        return result
 
 
 class BinanceClient:
